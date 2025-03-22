@@ -1,3 +1,4 @@
+
 // This service handles fetching new video URLs when the old ones expire
 
 /**
@@ -122,7 +123,6 @@ export const extractOriginalVideoUrl = async (iframeUrl: string): Promise<string
     // 3. Return the direct video URL
     
     // For demonstration purposes, we'll simulate this with a mock implementation
-    // that extracts a direct video URL based on patterns in the iframe URL
     
     console.log("Attempting to extract original video from:", iframeUrl);
     
@@ -137,9 +137,9 @@ export const extractOriginalVideoUrl = async (iframeUrl: string): Promise<string
         // Simulate extracting different types of video URLs based on the domain
         if (iframeUrl.includes('jole340erun.com')) {
           // For this specific domain, generate a simulated direct stream URL
-          const videoId = sourceConfig.videoId;
+          // Importantly, we use a generic structure that doesn't depend on the movie ID
           const timestamp = Date.now();
-          const simulatedDirectUrl = `https://i-cdn-0.jole340erun.com/stream2/i-cdn-0/42736faa7d17d5e3f3d145baf3850d44/${videoId}/MJTMsp1RshGTygnMNRUR2N2MSlnWXZEdMNDZzQWe5MDZzMmdZJTO1R2RWVHZDljekhkSsl1VwYnWtx2cihVT21keRNTWU1ENadVU69ERJdnWHZUaOp2Y5lleox2TEFEeZp2a0oVbJNTTU1UP:${timestamp}:117.235.253.44:bf32bff0cbfda4dfc7b1d4e32ee4f2644e9d81783c25c1f18e5ec3c261cc0ad9/1080/index.m3u8`;
+          const simulatedDirectUrl = `https://i-cdn-0.jole340erun.com/stream2/i-cdn-0/42736faa7d17d5e3f3d145baf3850d44/MJTMsp1RshGTygnMNRUR2N2MSlnWXZEdMNDZzQWe5MDZzMmdZJTO1R2RWVHZDljekhkSsl1VwYnWtx2cihVT21keRNTWU1ENadVU69ERJdnWHZUaOp2Y5lleox2TEFEeZp2a0oVbJNTTU1UP:${timestamp}:117.235.253.44:bf32bff0cbfda4dfc7b1d4e32ee4f2644e9d81783c25c1f18e5ec3c261cc0ad9/1080/index.m3u8`;
           console.log("Extracted direct video URL:", simulatedDirectUrl);
           resolve(simulatedDirectUrl);
         } else {

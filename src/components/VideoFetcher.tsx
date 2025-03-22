@@ -83,13 +83,23 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
     }
   };
 
+  // Determine if the URL is a stream URL or iframe URL for displaying in the UI
+  const getVideoTypeLabel = (url: string) => {
+    if (url.endsWith('.m3u8') || url.includes('/stream')) {
+      return "Direct Stream";
+    } else if (url.match(/\.(mp4|webm|ogg|mov)$/i) !== null) {
+      return "Video File";
+    }
+    return "Embedded Player";
+  };
+
   return (
     <div className="space-y-8 max-w-4xl mx-auto px-4">
       <Card className="w-full shadow-lg border-opacity-50 backdrop-blur-sm bg-white/80 transition-all duration-300">
         <CardHeader>
           <CardTitle className="text-2xl font-semibold">Dynamic Video Player</CardTitle>
           <CardDescription>
-            This player automatically refreshes expired video URLs
+            Supports both iframe embeds and direct video stream URLs (m3u8, mp4, etc.)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -98,13 +108,19 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
               type="text"
               value={inputUrl}
               onChange={(e) => setInputUrl(e.target.value)}
-              placeholder="Enter video iframe URL"
+              placeholder="Enter video URL (iframe or direct stream)"
               className="flex-1"
             />
             <Button type="submit" variant="default">
               Update Source
             </Button>
           </form>
+          
+          <div className="mb-4">
+            <p className="text-xs text-muted-foreground">
+              Current video type: <span className="font-medium">{getVideoTypeLabel(videoUrl)}</span>
+            </p>
+          </div>
           
           <VideoPlayer
             initialSrc={videoUrl}

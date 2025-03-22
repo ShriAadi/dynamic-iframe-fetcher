@@ -23,7 +23,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [hasError, setHasError] = useState<boolean>(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Determine if the URL is a direct video URL (like m3u8) or an iframe embed URL
+  const isDirectVideoUrl = (url: string): boolean => {
+    return url.endsWith('.m3u8') || 
+           url.includes('/stream') || 
+           url.match(/\.(mp4|webm|ogg|mov)$/i) !== null;
+  };
 
   // Extract domain and video ID from the src URL
   const extractVideoInfo = (src: string) => {
@@ -52,8 +60,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         setVideoSrc(newUrl);
         toast.success("Video source updated successfully");
       } else {
-        // If no fetch function is provided, we simulate a refresh by reloading the iframe
-        if (iframeRef.current) {
+        // If no fetch function is provided, we simulate a refresh by reloading the iframe or video
+        if (isDirectVideoUrl(videoSrc)) {
+          if (videoRef.current) {
+            videoRef.current.load();
+          }
+        } else if (iframeRef.current) {
           const currentSrc = iframeRef.current.src;
           iframeRef.current.src = '';
           setTimeout(() => {
@@ -82,10 +94,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         clearInterval(timerRef.current);
       }
     };
-  }, [refreshInterval]);
+  }, [refreshInterval, videoSrc]);
 
-  // Handle iframe load error
-  const handleIframeError = () => {
+  // Handle media load error
+  const handleMediaError = () => {
     setHasError(true);
     toast.error("Failed to load video");
   };
@@ -133,6 +145,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               Try Again
             </Button>
           </div>
+        ) : isDirectVideoUrl(videoSrc) ? (
+          <video
+            ref={videoRef}
+            src={videoSrc}
+            width={width}
+            height={height}
+            controls
+            autoPlay
+            className="w-full rounded-lg transition-opacity duration-300 ease-in-out"
+            style={{ opacity: isLoading ? 0.3 : 1 }}
+            onError={handleMediaError}
+          >
+            Your browser does not support the video tag.
+          </video>
         ) : (
           <iframe
             ref={iframeRef}
@@ -143,7 +169,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             allowFullScreen={true}
             className="w-full rounded-lg transition-opacity duration-300 ease-in-out"
             style={{ opacity: isLoading ? 0.3 : 1 }}
-            onError={handleIframeError}
+            onError={handleMediaError}
           />
         )}
       </div>

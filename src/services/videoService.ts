@@ -9,6 +9,7 @@ interface VideoSourceConfig {
   videoId: string;
   authToken?: string;
   params?: Record<string, string>;
+  isDirectVideo?: boolean;
 }
 
 /**
@@ -21,10 +22,16 @@ export const parseVideoUrl = (url: string): VideoSourceConfig | null => {
     const urlObj = new URL(url);
     const pathParts = urlObj.pathname.split('/').filter(Boolean);
     
+    // Check if it's a direct video URL (like .m3u8)
+    const isDirectVideo = url.endsWith('.m3u8') || 
+                          url.includes('/stream') || 
+                          url.match(/\.(mp4|webm|ogg|mov)$/i) !== null;
+    
     return {
       baseUrl: `${urlObj.protocol}//${urlObj.hostname}`,
       videoId: pathParts[pathParts.length - 1] || '',
-      params: Object.fromEntries(urlObj.searchParams.entries())
+      params: Object.fromEntries(urlObj.searchParams.entries()),
+      isDirectVideo
     };
   } catch (error) {
     console.error("Failed to parse video URL:", error);
@@ -54,9 +61,24 @@ export const fetchNewVideoUrl = async (sourceConfig: VideoSourceConfig): Promise
       }
       
       try {
-        // Simulate getting a new URL by adding a timestamp
-        const timestamp = Date.now();
-        const newUrl = `${sourceConfig.baseUrl}/play/${sourceConfig.videoId}?refresh=${timestamp}`;
+        // Handle different URL types
+        let newUrl;
+        
+        if (sourceConfig.isDirectVideo) {
+          // For direct video URLs like m3u8, add a timestamp to force refresh
+          const timestamp = Date.now();
+          if (sourceConfig.baseUrl.includes('i-cdn')) {
+            // Example refresh for stream URLs - in production this would come from your backend
+            newUrl = `${sourceConfig.baseUrl}/stream2/i-cdn-0/42736faa7d17d5e3f3d145baf3850d44/MJTMsp1RshGTygnMNRUR2N2MSlnWXZEdMNDZzQWe5MDZzMmdZJTO1R2RWVHZDljekhkSsl1VwYnWtx2cihVT21keRNTWU1ENadVU69ERJdnWHZUaOp2Y5lleox2TEFEeZp2a0oVbJNTTU1UP:${timestamp}:117.235.253.44:bf32bff0cbfda4dfc7b1d4e32ee4f2644e9d81783c25c1f18e5ec3c261cc0ad9/1080/index.m3u8`;
+          } else {
+            // Generic timestamp append
+            newUrl = `${sourceConfig.baseUrl}${sourceConfig.videoId}?_=${timestamp}`;
+          }
+        } else {
+          // For iframe embed URLs
+          const timestamp = Date.now();
+          newUrl = `${sourceConfig.baseUrl}/play/${sourceConfig.videoId}?refresh=${timestamp}`;
+        }
         
         // Log for debugging
         console.log("Generated new video URL:", newUrl);

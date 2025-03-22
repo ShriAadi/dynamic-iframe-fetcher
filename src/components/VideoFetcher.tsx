@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import VideoPlayer from './VideoPlayer';
 import { parseVideoUrl, fetchNewVideoUrl, isVideoUrlExpired } from '@/services/videoService';
@@ -15,6 +16,7 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>(defaultVideoUrl);
   const [inputUrl, setInputUrl] = useState<string>(defaultVideoUrl);
+  const [movieId, setMovieId] = useState<string>("");
 
   // Function to refresh the video URL
   const refreshVideoUrl = useCallback(async (): Promise<string> => {
@@ -82,6 +84,32 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
     }
   };
 
+  // Handle movie ID submission
+  const handleMovieIdSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (!movieId.trim()) {
+        toast.error("Please enter a movie ID");
+        return;
+      }
+      
+      // Format movieId to ensure it has the correct format (tt followed by numbers)
+      let formattedId = movieId;
+      if (!formattedId.startsWith('tt') && !isNaN(Number(formattedId))) {
+        formattedId = `tt${formattedId}`;
+      }
+      
+      // Construct the URL with the movie ID
+      const newUrl = `https://jole340erun.com/play/${formattedId}`;
+      setInputUrl(newUrl);
+      setVideoUrl(newUrl);
+      toast.success(`Loaded movie ID: ${formattedId}`);
+    } catch (error) {
+      console.error("Error updating movie ID:", error);
+      toast.error("Failed to update movie ID");
+    }
+  };
+
   // Determine if the URL is a stream URL or iframe URL for displaying in the UI
   const getVideoTypeLabel = (url: string) => {
     if (url.endsWith('.m3u8') || url.includes('/stream')) {
@@ -91,6 +119,25 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
     }
     return "Embedded Player";
   };
+
+  // Extract movie ID from the current URL
+  const extractMovieIdFromUrl = (url: string): string => {
+    try {
+      const parsedUrl = new URL(url);
+      const pathParts = parsedUrl.pathname.split('/');
+      const lastPart = pathParts[pathParts.length - 1];
+      
+      // If it contains a tt ID pattern, return it
+      if (lastPart.startsWith('tt')) {
+        return lastPart;
+      }
+      return "";
+    } catch {
+      return "";
+    }
+  };
+
+  const currentMovieId = extractMovieIdFromUrl(videoUrl);
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto px-4">
@@ -102,18 +149,48 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="flex space-x-2 mb-6">
-            <Input
-              type="text"
-              value={inputUrl}
-              onChange={(e) => setInputUrl(e.target.value)}
-              placeholder="Enter video URL (iframe or direct stream)"
-              className="flex-1"
-            />
-            <Button type="submit" variant="default">
-              Update Source
-            </Button>
-          </form>
+          <div className="grid gap-6 md:grid-cols-2 mb-6">
+            <div>
+              <h3 className="text-sm font-medium mb-2">Enter Video URL</h3>
+              <form onSubmit={handleSubmit} className="flex space-x-2">
+                <Input
+                  type="text"
+                  value={inputUrl}
+                  onChange={(e) => setInputUrl(e.target.value)}
+                  placeholder="Enter video URL (iframe or direct stream)"
+                  className="flex-1"
+                />
+                <Button type="submit" variant="default">
+                  Load URL
+                </Button>
+              </form>
+            </div>
+            
+            <div>
+              <h3 className="text-sm font-medium mb-2">Enter Movie ID</h3>
+              <form onSubmit={handleMovieIdSubmit} className="flex space-x-2">
+                <Input
+                  type="text"
+                  value={movieId}
+                  onChange={(e) => setMovieId(e.target.value)}
+                  placeholder="Enter movie ID (e.g., tt27995594)"
+                  className="flex-1"
+                />
+                <Button type="submit" variant="default">
+                  Load Movie
+                </Button>
+              </form>
+            </div>
+          </div>
+          
+          {currentMovieId && (
+            <div className="mb-4 p-2 bg-muted/30 rounded-md">
+              <p className="text-sm">
+                <span className="font-medium">Current Movie ID:</span> 
+                <span className="ml-1">{currentMovieId}</span>
+              </p>
+            </div>
+          )}
           
           <div className="mb-4">
             <p className="text-xs text-muted-foreground">

@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { RefreshCcw, AlertCircle } from "lucide-react";
+import { RefreshCcw, AlertCircle, ExternalLink } from "lucide-react";
+import { extractOriginalVideoUrl } from '@/services/videoService';
 
 interface VideoPlayerProps {
   initialSrc: string;
@@ -22,18 +22,18 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [videoSrc, setVideoSrc] = useState<string>(initialSrc);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [hasError, setHasError] = useState<boolean>(false);
+  const [isExtracting, setIsExtracting] = useState<boolean>(false);
+  const [originalVideoUrl, setOriginalVideoUrl] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Determine if the URL is a direct video URL (like m3u8) or an iframe embed URL
   const isDirectVideoUrl = (url: string): boolean => {
     return url.endsWith('.m3u8') || 
            url.includes('/stream') || 
            url.match(/\.(mp4|webm|ogg|mov)$/i) !== null;
   };
 
-  // Extract domain and video ID from the src URL
   const extractVideoInfo = (src: string) => {
     try {
       const url = new URL(src);
@@ -49,7 +49,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const { domain, videoId } = extractVideoInfo(initialSrc);
 
-  // Function to refresh the video URL
   const refreshVideoUrl = async () => {
     setIsLoading(true);
     setHasError(false);
@@ -60,7 +59,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         setVideoSrc(newUrl);
         toast.success("Video source updated successfully");
       } else {
-        // If no fetch function is provided, we simulate a refresh by reloading the iframe or video
         if (isDirectVideoUrl(videoSrc)) {
           if (videoRef.current) {
             videoRef.current.load();
@@ -83,7 +81,29 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
-  // Set up automatic refresh interval
+  const handleExtractOriginal = async () => {
+    if (isDirectVideoUrl(videoSrc)) {
+      toast.info("This is already a direct video URL");
+      return;
+    }
+    
+    setIsExtracting(true);
+    try {
+      const extractedUrl = await extractOriginalVideoUrl(videoSrc);
+      if (extractedUrl) {
+        setOriginalVideoUrl(extractedUrl);
+        toast.success("Original video URL extracted successfully");
+      } else {
+        toast.error("Could not extract original video URL");
+      }
+    } catch (error) {
+      console.error("Error extracting original video URL:", error);
+      toast.error("Failed to extract original video URL");
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
   useEffect(() => {
     if (refreshInterval > 0) {
       timerRef.current = setInterval(refreshVideoUrl, refreshInterval);
@@ -96,10 +116,25 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, [refreshInterval, videoSrc]);
 
-  // Handle media load error
   const handleMediaError = () => {
     setHasError(true);
     toast.error("Failed to load video");
+  };
+
+  const switchToOriginalSource = () => {
+    if (originalVideoUrl) {
+      setVideoSrc(originalVideoUrl);
+      toast.success("Switched to original video source");
+    }
+  };
+
+  const copyToClipboard = (url: string) => {
+    navigator.clipboard.writeText(url)
+      .then(() => toast.success("URL copied to clipboard"))
+      .catch(err => {
+        console.error("Could not copy URL: ", err);
+        toast.error("Failed to copy URL");
+      });
   };
 
   return (
@@ -107,23 +142,66 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       <div className="flex items-center justify-between mb-2">
         <div>
           <p className="text-sm font-medium text-muted-foreground">
-            Source: {domain}
+            Source: {extractVideoInfo(videoSrc).domain}
           </p>
           <p className="text-xs text-muted-foreground">
-            Video ID: {videoId}
+            Video ID: {extractVideoInfo(videoSrc).videoId}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={refreshVideoUrl}
-          disabled={isLoading}
-          className="flex items-center gap-1 transition-all"
-        >
-          <RefreshCcw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>{isLoading ? 'Refreshing...' : 'Refresh'}</span>
-        </Button>
+        <div className="flex gap-2">
+          {!isDirectVideoUrl(videoSrc) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExtractOriginal}
+              disabled={isExtracting}
+              className="flex items-center gap-1 transition-all"
+            >
+              <ExternalLink className={`h-3.5 w-3.5 ${isExtracting ? 'animate-spin' : ''}`} />
+              <span>{isExtracting ? 'Extracting...' : 'Extract Original'}</span>
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refreshVideoUrl}
+            disabled={isLoading}
+            className="flex items-center gap-1 transition-all"
+          >
+            <RefreshCcw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>{isLoading ? 'Refreshing...' : 'Refresh'}</span>
+          </Button>
+        </div>
       </div>
+
+      {originalVideoUrl && (
+        <div className="p-3 bg-muted/30 rounded-md mb-4">
+          <div className="flex justify-between items-center">
+            <p className="text-sm truncate flex-1 mr-2">
+              <span className="font-medium">Original URL:</span> 
+              <span className="ml-1 text-muted-foreground">{originalVideoUrl}</span>
+            </p>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => copyToClipboard(originalVideoUrl)}
+              >
+                Copy
+              </Button>
+              {videoSrc !== originalVideoUrl && (
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={switchToOriginalSource}
+                >
+                  Use This Source
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className={`video-container relative ${hasError ? 'video-error' : ''}`}>
         {isLoading && (

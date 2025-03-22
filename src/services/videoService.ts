@@ -1,4 +1,3 @@
-
 // This service handles fetching new video URLs when the old ones expire
 
 /**
@@ -108,4 +107,49 @@ export const isVideoUrlExpired = async (url: string): Promise<boolean> => {
     const isExpired = Math.random() < 0.3;
     resolve(isExpired);
   });
+};
+
+/**
+ * Extract the original video stream URL from an iframe embed page
+ * @param iframeUrl The iframe embed URL
+ * @returns A Promise that resolves to the extracted direct video URL or null if not found
+ */
+export const extractOriginalVideoUrl = async (iframeUrl: string): Promise<string | null> => {
+  try {
+    // In a real implementation, you would:
+    // 1. Make a request to the iframe URL
+    // 2. Parse the HTML response to find the video source
+    // 3. Return the direct video URL
+    
+    // For demonstration purposes, we'll simulate this with a mock implementation
+    // that extracts a direct video URL based on patterns in the iframe URL
+    
+    console.log("Attempting to extract original video from:", iframeUrl);
+    
+    // Parse the iframe URL
+    const sourceConfig = parseVideoUrl(iframeUrl);
+    if (!sourceConfig) {
+      throw new Error("Invalid iframe URL");
+    }
+    
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // Simulate extracting different types of video URLs based on the domain
+        if (iframeUrl.includes('jole340erun.com')) {
+          // For this specific domain, generate a simulated direct stream URL
+          const videoId = sourceConfig.videoId;
+          const timestamp = Date.now();
+          const simulatedDirectUrl = `https://i-cdn-0.jole340erun.com/stream2/i-cdn-0/42736faa7d17d5e3f3d145baf3850d44/${videoId}/MJTMsp1RshGTygnMNRUR2N2MSlnWXZEdMNDZzQWe5MDZzMmdZJTO1R2RWVHZDljekhkSsl1VwYnWtx2cihVT21keRNTWU1ENadVU69ERJdnWHZUaOp2Y5lleox2TEFEeZp2a0oVbJNTTU1UP:${timestamp}:117.235.253.44:bf32bff0cbfda4dfc7b1d4e32ee4f2644e9d81783c25c1f18e5ec3c261cc0ad9/1080/index.m3u8`;
+          console.log("Extracted direct video URL:", simulatedDirectUrl);
+          resolve(simulatedDirectUrl);
+        } else {
+          // Generic fallback for other domains
+          resolve(null);
+        }
+      }, 1000); // Simulate network delay
+    });
+  } catch (error) {
+    console.error("Error extracting original video URL:", error);
+    return null;
+  }
 };

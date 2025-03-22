@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import VideoPlayer from './VideoPlayer';
 import { parseVideoUrl, fetchNewVideoUrl, isVideoUrlExpired } from '@/services/videoService';
@@ -99,7 +98,7 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
         <CardHeader>
           <CardTitle className="text-2xl font-semibold">Dynamic Video Player</CardTitle>
           <CardDescription>
-            Supports both iframe embeds and direct video stream URLs (m3u8, mp4, etc.)
+            Supports both iframe embeds and direct video stream URLs (m3u8, mp4, etc.). You can extract the original direct video URL from iframe embeds.
           </CardDescription>
         </CardHeader>
         <CardContent>

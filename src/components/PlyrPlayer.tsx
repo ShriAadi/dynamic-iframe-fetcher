@@ -38,10 +38,10 @@ const PlyrPlayer: React.FC<PlyrPlayerProps> = ({ src, onError }) => {
           }
         });
         
-        // Attach media element - Fixed: Accessing media element properly
+        // Attach media element - Fixed: Accessing video element properly
         if (playerRef.current?.plyr) {
-          // Access the HTML video element through the plyr instance
-          const videoElement = playerRef.current.plyr.media as HTMLVideoElement;
+          // Find the video element within plyr
+          const videoElement = playerRef.current.plyr.elements?.container?.querySelector('video') as HTMLVideoElement;
           if (videoElement) {
             hlsInstance.attachMedia(videoElement);
             hlsInstance.on(Hls.Events.MEDIA_ATTACHED, () => {

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import Plyr from 'plyr-react';
 import 'plyr-react/plyr.css';
@@ -40,7 +41,7 @@ const PlyrPlayer: React.FC<PlyrPlayerProps> = ({ src, onError }) => {
         // Wait for component to properly mount before trying to access video element
         setTimeout(() => {
           if (playerRef.current?.plyr) {
-            // Get the DOM node directly instead of trying to access through plyr
+            // Get the video element using a more reliable selector
             const playerElement = document.querySelector('.plyr-container video') as HTMLVideoElement;
             
             if (playerElement) {
@@ -56,6 +57,9 @@ const PlyrPlayer: React.FC<PlyrPlayerProps> = ({ src, onError }) => {
                 console.log("HLS manifest parsed, levels:", data.levels.length);
                 const availableQualities = data.levels.map((level) => level.height);
                 console.log("Available qualities:", availableQualities);
+                
+                // Auto-play when manifest is parsed
+                playerRef.current?.plyr?.play();
               });
               
               hlsInstance?.on(Hls.Events.ERROR, (_, data) => {
@@ -85,10 +89,24 @@ const PlyrPlayer: React.FC<PlyrPlayerProps> = ({ src, onError }) => {
               setHls(hlsInstance);
             } else {
               console.error("Could not find video element using direct DOM selector");
-              if (onError) onError();
+              
+              // Try again with a longer delay as a fallback
+              setTimeout(() => {
+                const videoElement = document.querySelector('.plyr-container video') as HTMLVideoElement;
+                if (videoElement) {
+                  console.log("Found video element on second attempt");
+                  hlsInstance?.attachMedia(videoElement);
+                  hlsInstance?.on(Hls.Events.MEDIA_ATTACHED, () => {
+                    hlsInstance?.loadSource(src);
+                  });
+                  setHls(hlsInstance);
+                } else if (onError) {
+                  onError();
+                }
+              }, 500);
             }
           }
-        }, 100); // Give a small delay to ensure the Plyr component is fully mounted
+        }, 200); // Increased delay to ensure the Plyr component is fully mounted
       } else if (playerRef.current?.plyr) {
         // Direct source assignment for other formats
         playerRef.current.plyr.source = {

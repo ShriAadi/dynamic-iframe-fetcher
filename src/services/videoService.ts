@@ -73,22 +73,29 @@ export const generateVideoUrlFromId = (movieId: string): string => {
  */
 export const extractOriginalVideoUrl = async (movieId: string): Promise<string | null> => {
   try {
-    // In a real implementation, you would:
-    // 1. Make a request to the iframe URL
-    // 2. Parse the HTML response to find the video source
-    // 3. Return the direct video URL
-    
     console.log("Attempting to extract original video for movie:", movieId);
     
-    // For demonstration purposes, we'll simulate this with a mock implementation
+    // In a real implementation, this would make an actual API call to get the movie stream
     return new Promise((resolve) => {
       setTimeout(() => {
-        // Generate a simulated direct stream URL that's more likely to work with HLS.js
-        const timestamp = Date.now();
-        // This is a public test HLS stream that actually works with HLS.js
-        const simulatedDirectUrl = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
-        console.log("Extracted direct video URL:", simulatedDirectUrl);
-        resolve(simulatedDirectUrl);
+        // Generate a dynamic URL based on the movie ID for demonstration
+        // Using specific movie samples based on ID for better demonstration
+        if (movieId === "tt27995594") {
+          // Big Buck Bunny (free open movie)
+          resolve("https://storage.googleapis.com/shaka-demo-assets/bbb-dark-truths-hls/hls.m3u8");
+        } else if (movieId === "tt2062700") {
+          // Sintel (free open movie)
+          resolve("https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8");
+        } else if (movieId === "tt1375666") {
+          // Tears of Steel (free open movie)
+          resolve("https://cdn.theoplayer.com/video/tears_of_steel/playlist.m3u8");
+        } else if (movieId === "tt0111161") {
+          // Elephants Dream (free open movie)
+          resolve("https://multiplatform-f.akamaihd.net/i/multi/will/bunny/big_buck_bunny_,640x360_400,640x360_700,640x360_1000,950x540_1500,.f4v.csmil/master.m3u8");
+        } else {
+          // Fallback to another open movie sample for any other IDs
+          resolve("https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8");
+        }
       }, 1000); // Simulate network delay
     });
   } catch (error) {

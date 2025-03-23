@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import Plyr from 'plyr-react';
 import 'plyr-react/plyr.css';
@@ -38,54 +37,58 @@ const PlyrPlayer: React.FC<PlyrPlayerProps> = ({ src, onError }) => {
           }
         });
         
-        // Attach media element - Fixed: Accessing video element properly
-        if (playerRef.current?.plyr) {
-          // Find the video element within plyr
-          const videoElement = playerRef.current.plyr.elements?.container?.querySelector('video') as HTMLVideoElement;
-          if (videoElement) {
-            hlsInstance.attachMedia(videoElement);
-            hlsInstance.on(Hls.Events.MEDIA_ATTACHED, () => {
-              console.log("HLS media attached");
-              hlsInstance?.loadSource(src);
-            });
+        // Wait for component to properly mount before trying to access video element
+        setTimeout(() => {
+          if (playerRef.current?.plyr) {
+            // Get the DOM node directly instead of trying to access through plyr
+            const playerElement = document.querySelector('.plyr-container video') as HTMLVideoElement;
             
-            // Handle HLS events
-            hlsInstance.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
-              console.log("HLS manifest parsed, levels:", data.levels.length);
-              const availableQualities = data.levels.map((level) => level.height);
-              console.log("Available qualities:", availableQualities);
-            });
-            
-            hlsInstance.on(Hls.Events.ERROR, (_, data) => {
-              if (data.fatal) {
-                console.error("Fatal HLS error:", data.type, data.details);
-                switch (data.type) {
-                  case Hls.ErrorTypes.NETWORK_ERROR:
-                    // Try to recover network error
-                    console.log("HLS network error - trying to recover");
-                    hlsInstance?.startLoad();
-                    break;
-                  case Hls.ErrorTypes.MEDIA_ERROR:
-                    console.log("HLS media error - trying to recover");
-                    hlsInstance?.recoverMediaError();
-                    break;
-                  default:
-                    // Cannot recover
-                    console.error("Unrecoverable HLS error");
-                    hlsInstance?.destroy();
-                    if (onError) onError();
-                    toast.error("Failed to load video stream");
-                    break;
+            if (playerElement) {
+              console.log("Found video element, attaching HLS");
+              hlsInstance?.attachMedia(playerElement);
+              hlsInstance?.on(Hls.Events.MEDIA_ATTACHED, () => {
+                console.log("HLS media attached");
+                hlsInstance?.loadSource(src);
+              });
+              
+              // Handle HLS events
+              hlsInstance?.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+                console.log("HLS manifest parsed, levels:", data.levels.length);
+                const availableQualities = data.levels.map((level) => level.height);
+                console.log("Available qualities:", availableQualities);
+              });
+              
+              hlsInstance?.on(Hls.Events.ERROR, (_, data) => {
+                if (data.fatal) {
+                  console.error("Fatal HLS error:", data.type, data.details);
+                  switch (data.type) {
+                    case Hls.ErrorTypes.NETWORK_ERROR:
+                      // Try to recover network error
+                      console.log("HLS network error - trying to recover");
+                      hlsInstance?.startLoad();
+                      break;
+                    case Hls.ErrorTypes.MEDIA_ERROR:
+                      console.log("HLS media error - trying to recover");
+                      hlsInstance?.recoverMediaError();
+                      break;
+                    default:
+                      // Cannot recover
+                      console.error("Unrecoverable HLS error");
+                      hlsInstance?.destroy();
+                      if (onError) onError();
+                      toast.error("Failed to load video stream");
+                      break;
+                  }
                 }
-              }
-            });
-            
-            setHls(hlsInstance);
-          } else {
-            console.error("Could not find video element in Plyr");
-            if (onError) onError();
+              });
+              
+              setHls(hlsInstance);
+            } else {
+              console.error("Could not find video element using direct DOM selector");
+              if (onError) onError();
+            }
           }
-        }
+        }, 100); // Give a small delay to ensure the Plyr component is fully mounted
       } else if (playerRef.current?.plyr) {
         // Direct source assignment for other formats
         playerRef.current.plyr.source = {
@@ -110,7 +113,7 @@ const PlyrPlayer: React.FC<PlyrPlayerProps> = ({ src, onError }) => {
         hlsInstance.destroy();
       }
     };
-  }, [src, onError]);
+  }, [src, onError, hls]);
 
   // Determine video type based on file extension
   const determineVideoType = (url: string): string => {

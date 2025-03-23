@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import Plyr from 'plyr-react';
 import 'plyr-react/plyr.css';
@@ -14,8 +13,20 @@ interface PlyrPlayerProps {
 const PlyrPlayer: React.FC<PlyrPlayerProps> = ({ src, onError }) => {
   const playerRef = useRef<APITypes>(null);
   const [hls, setHls] = useState<Hls | null>(null);
+  const [playerMode, setPlayerMode] = useState<'direct' | 'iframe'>('direct');
+  const [iframeSrc, setIframeSrc] = useState<string | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
+    // Check if we're using the iframe proxy approach
+    if (src.startsWith('iframe://')) {
+      const iframeUrl = src.replace('iframe://', '');
+      setIframeSrc(iframeUrl);
+      setPlayerMode('iframe');
+      return;
+    }
+    
+    setPlayerMode('direct');
     let hlsInstance: Hls | null = null;
     
     // Function to initialize HLS
@@ -124,14 +135,58 @@ const PlyrPlayer: React.FC<PlyrPlayerProps> = ({ src, onError }) => {
     // Initialize when component mounts or source changes
     initializeHls();
     
+    // Setup message event listener for iframe communication
+    const handleMessage = (event: MessageEvent) => {
+      try {
+        // Handle messages from iframe players
+        if (event.data && typeof event.data === 'object' && event.data.type === 'video-extracted') {
+          const extractedUrl = event.data.url;
+          console.log("Received extracted video URL from iframe:", extractedUrl);
+          if (extractedUrl && typeof extractedUrl === 'string') {
+            setVideoSrc(extractedUrl);
+          }
+        }
+      } catch (error) {
+        console.error("Error handling iframe message:", error);
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    
     // Cleanup
     return () => {
       if (hlsInstance) {
         console.log("Destroying HLS instance");
         hlsInstance.destroy();
       }
+      window.removeEventListener('message', handleMessage);
     };
   }, [src, onError, hls]);
+
+  // Function to handle setting video source from iframe message
+  const setVideoSrc = (newSrc: string) => {
+    setPlayerMode('direct');
+    setIframeSrc(null);
+    
+    // Clean up existing HLS instance if any
+    if (hls) {
+      hls.destroy();
+      setHls(null);
+    }
+    
+    // Update source for player
+    if (playerRef.current?.plyr) {
+      playerRef.current.plyr.source = {
+        type: 'video',
+        sources: [
+          {
+            src: newSrc,
+            type: determineVideoType(newSrc),
+          },
+        ],
+      };
+    }
+  };
 
   // Determine video type based on file extension
   const determineVideoType = (url: string): string => {
@@ -194,6 +249,24 @@ const PlyrPlayer: React.FC<PlyrPlayerProps> = ({ src, onError }) => {
     },
   };
 
+  // If we're in iframe mode, render an iframe
+  if (playerMode === 'iframe' && iframeSrc) {
+    return (
+      <div className="plyr-container rounded-lg overflow-hidden">
+        <iframe
+          ref={iframeRef}
+          src={iframeSrc}
+          className="w-full h-full"
+          style={{ width: '100%', height: '450px' }}
+          frameBorder="0"
+          allowFullScreen
+          allow="autoplay; encrypted-media"
+        />
+      </div>
+    );
+  }
+
+  // Otherwise render the Plyr player
   return (
     <div className="plyr-container rounded-lg overflow-hidden">
       <Plyr

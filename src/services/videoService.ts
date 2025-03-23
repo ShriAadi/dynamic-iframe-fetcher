@@ -1,4 +1,3 @@
-
 // This service handles fetching video URLs and movie information
 
 /**
@@ -67,6 +66,63 @@ export const generateVideoUrlFromId = (movieId: string): string => {
 };
 
 /**
+ * Extract video URL from an iframe element by ID
+ * @param iframeId ID of the iframe element
+ * @returns Extracted video URL or null if not found
+ */
+export const extractVideoFromIframe = (iframeId: string): string | null => {
+  try {
+    const iframe = document.getElementById(iframeId) as HTMLIFrameElement;
+    if (!iframe) return null;
+    
+    // Try to access iframe content (this will fail due to same-origin policy in most cases)
+    // This is just a placeholder for the concept
+    return iframe.src;
+  } catch (error) {
+    console.error("Failed to extract video from iframe:", error);
+    return null;
+  }
+};
+
+/**
+ * Create temporary iframe to extract video URL
+ * @param url The URL to load in the iframe
+ * @returns Promise resolving to the extracted video URL
+ */
+export const extractVideoUrlFromPage = async (url: string): Promise<string | null> => {
+  return new Promise((resolve) => {
+    // Create a temporary iframe
+    const tempIframe = document.createElement('iframe');
+    tempIframe.style.display = 'none';
+    tempIframe.src = url;
+    
+    // Set a timeout to prevent hanging if extraction fails
+    const timeoutId = setTimeout(() => {
+      document.body.removeChild(tempIframe);
+      console.warn("Extraction timed out, using fallback URL");
+      resolve(null);
+    }, 5000);
+    
+    // Listen for iframe to load
+    tempIframe.onload = () => {
+      try {
+        // In a real scenario, we would use message passing or other techniques here
+        // For this demo, we'll simulate extraction
+        clearTimeout(timeoutId);
+        document.body.removeChild(tempIframe);
+        resolve(null); // Initial extraction failed
+      } catch (error) {
+        document.body.removeChild(tempIframe);
+        console.error("Error during extraction:", error);
+        resolve(null);
+      }
+    };
+    
+    document.body.appendChild(tempIframe);
+  });
+};
+
+/**
  * Extract the original video stream URL from an iframe embed page
  * @param movieId The movie ID to extract video for
  * @returns A Promise that resolves to the extracted direct video URL or null if not found
@@ -75,29 +131,24 @@ export const extractOriginalVideoUrl = async (movieId: string): Promise<string |
   try {
     console.log("Attempting to extract original video for movie:", movieId);
     
-    // In a real implementation, this would make an actual API call to get the movie stream
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // Generate a dynamic URL based on the movie ID for demonstration
-        // Using specific movie samples based on ID for better demonstration
-        if (movieId === "tt27995594") {
-          // Big Buck Bunny (free open movie)
-          resolve("https://storage.googleapis.com/shaka-demo-assets/bbb-dark-truths-hls/hls.m3u8");
-        } else if (movieId === "tt2062700") {
-          // Sintel (free open movie)
-          resolve("https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8");
-        } else if (movieId === "tt1375666") {
-          // Tears of Steel (free open movie)
-          resolve("https://cdn.theoplayer.com/video/tears_of_steel/playlist.m3u8");
-        } else if (movieId === "tt0111161") {
-          // Elephants Dream (free open movie)
-          resolve("https://multiplatform-f.akamaihd.net/i/multi/will/bunny/big_buck_bunny_,640x360_400,640x360_700,640x360_1000,950x540_1500,.f4v.csmil/master.m3u8");
-        } else {
-          // Fallback to another open movie sample for any other IDs
-          resolve("https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8");
-        }
-      }, 1000); // Simulate network delay
-    });
+    // Generate the iframe URL
+    const iframeUrl = generateVideoUrlFromId(movieId);
+    
+    // Try to extract the video URL from the iframe page
+    const extractedUrl = await extractVideoUrlFromPage(iframeUrl);
+    
+    if (extractedUrl) {
+      console.log("Successfully extracted URL from iframe:", extractedUrl);
+      return extractedUrl;
+    }
+    
+    console.log("Direct extraction failed, using iframe proxy approach");
+    
+    // Create a unique ID for this movie's player
+    const playerId = `movie-player-${movieId}`;
+    
+    // Return a special URL that tells our player to use an iframe with postMessage communication
+    return `iframe://${iframeUrl}?playerId=${playerId}`;
   } catch (error) {
     console.error("Error extracting original video URL:", error);
     return null;

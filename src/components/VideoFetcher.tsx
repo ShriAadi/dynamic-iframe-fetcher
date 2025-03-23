@@ -20,10 +20,12 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
   const [isExtracting, setIsExtracting] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [hasError, setHasError] = useState<boolean>(false);
+  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
 
   useEffect(() => {
     // Reset state when movie ID changes
     setDirectVideoUrl(null);
+    setIframeUrl(null);
     setHasError(false);
   }, [currentMovieId]);
 
@@ -34,6 +36,11 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
     setHasError(false);
     
     try {
+      // First, generate the iframe URL
+      const embedUrl = generateVideoUrlFromId(currentMovieId);
+      setIframeUrl(embedUrl);
+
+      // Then extract the original URL from it
       const extractedUrl = await extractOriginalVideoUrl(currentMovieId);
       if (extractedUrl) {
         setDirectVideoUrl(extractedUrl);
@@ -54,6 +61,7 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
   const handleSelectMovie = (movieId: string) => {
     setCurrentMovieId(movieId);
     setDirectVideoUrl(null);
+    setIframeUrl(null);
   };
 
   const handleVideoError = () => {
@@ -88,16 +96,29 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
                 <span className="ml-1">{currentMovieId}</span>
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExtractOriginalUrl}
-              disabled={isExtracting}
-              className="flex items-center gap-1 transition-all"
-            >
-              <ExternalLink className={`h-3.5 w-3.5 ${isExtracting ? 'animate-spin' : ''}`} />
-              <span>{isExtracting ? 'Extracting...' : 'Extract & Play'}</span>
-            </Button>
+            <div className="flex gap-2">
+              {!iframeUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIframeUrl(generateVideoUrlFromId(currentMovieId))}
+                  className="flex items-center gap-1"
+                >
+                  <Film className="h-3.5 w-3.5" />
+                  <span>Show Iframe</span>
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExtractOriginalUrl}
+                disabled={isExtracting}
+                className="flex items-center gap-1 transition-all"
+              >
+                <ExternalLink className={`h-3.5 w-3.5 ${isExtracting ? 'animate-spin' : ''}`} />
+                <span>{isExtracting ? 'Extracting...' : 'Extract & Play'}</span>
+              </Button>
+            </div>
           </div>
           
           <div className="video-container relative">
@@ -129,6 +150,16 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
               </div>
             ) : directVideoUrl ? (
               <PlyrPlayer src={directVideoUrl} onError={handleVideoError} />
+            ) : iframeUrl ? (
+              <div className="relative rounded-lg overflow-hidden" style={{ paddingTop: '56.25%' }}>
+                <iframe 
+                  src={iframeUrl}
+                  className="absolute top-0 left-0 w-full h-full border-0"
+                  allowFullScreen
+                  allow="autoplay; encrypted-media"
+                  id={`movie-iframe-${currentMovieId}`}
+                />
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-64 p-8 space-y-4 bg-muted/30 rounded-lg">
                 <Film className="h-12 w-12 text-muted-foreground" />
@@ -158,6 +189,27 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
                   onClick={() => navigator.clipboard.writeText(directVideoUrl)}
                 >
                   Copy URL
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          {iframeUrl && !directVideoUrl && (
+            <div className="mt-4 p-3 bg-muted/30 rounded-md">
+              <div className="flex justify-between items-center">
+                <p className="text-sm truncate flex-1 mr-2">
+                  <span className="font-medium">Iframe URL:</span> 
+                  <span className="ml-1 text-muted-foreground text-xs">{iframeUrl}</span>
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    setIframeUrl(null);
+                    toast.info("Iframe view closed");
+                  }}
+                >
+                  Close Iframe
                 </Button>
               </div>
             </div>

@@ -1,219 +1,208 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import VideoPlayer from './VideoPlayer';
+import { parseVideoUrl, fetchNewVideoUrl, isVideoUrlExpired } from '@/services/videoService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { RefreshCcw, ExternalLink, Film } from "lucide-react";
-import { extractOriginalVideoUrl, generateVideoUrlFromId } from '@/services/videoService';
-import PlyrPlayer from './PlyrPlayer';
-import MovieSearch from './MovieSearch';
 
 interface VideoFetcherProps {
-  defaultMovieId?: string;
+  defaultVideoUrl?: string;
 }
 
 const VideoFetcher: React.FC<VideoFetcherProps> = ({ 
-  defaultMovieId = "tt27995594" 
+  defaultVideoUrl = "https://jole340erun.com/play/tt27995594" 
 }) => {
-  const [currentMovieId, setCurrentMovieId] = useState<string>(defaultMovieId);
-  const [directVideoUrl, setDirectVideoUrl] = useState<string | null>(null);
-  const [isExtracting, setIsExtracting] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [hasError, setHasError] = useState<boolean>(false);
-  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string>(defaultVideoUrl);
+  const [inputUrl, setInputUrl] = useState<string>(defaultVideoUrl);
+  const [movieId, setMovieId] = useState<string>("");
 
-  useEffect(() => {
-    // Reset state when movie ID changes
-    setDirectVideoUrl(null);
-    setIframeUrl(null);
-    setHasError(false);
-  }, [currentMovieId]);
-
-  const handleExtractOriginalUrl = async () => {
-    if (isExtracting) return;
-    
-    setIsExtracting(true);
-    setHasError(false);
-    
+  // Function to refresh the video URL
+  const refreshVideoUrl = useCallback(async (): Promise<string> => {
     try {
-      // First, generate the iframe URL
-      const embedUrl = generateVideoUrlFromId(currentMovieId);
-      setIframeUrl(embedUrl);
-
-      // Then extract the original URL from it
-      const extractedUrl = await extractOriginalVideoUrl(currentMovieId);
-      if (extractedUrl) {
-        setDirectVideoUrl(extractedUrl);
-        toast.success("Original video URL extracted successfully");
-      } else {
-        toast.error("Could not extract original video URL");
-        setHasError(true);
+      const sourceConfig = parseVideoUrl(videoUrl);
+      if (!sourceConfig) {
+        throw new Error("Failed to parse video URL");
       }
+      
+      const newUrl = await fetchNewVideoUrl(sourceConfig);
+      setVideoUrl(newUrl);
+      return newUrl;
     } catch (error) {
-      console.error("Error extracting original video URL:", error);
-      toast.error("Failed to extract original video URL");
-      setHasError(true);
-    } finally {
-      setIsExtracting(false);
+      console.error("Error refreshing video URL:", error);
+      toast.error("Failed to refresh video URL");
+      throw error;
     }
-  };
+  }, [videoUrl]);
 
-  const handleSelectMovie = (movieId: string) => {
-    setCurrentMovieId(movieId);
-    setDirectVideoUrl(null);
-    setIframeUrl(null);
-  };
+  // Check if the current URL is expired
+  useEffect(() => {
+    const checkExpiration = async () => {
+      try {
+        const expired = await isVideoUrlExpired(videoUrl);
+        if (expired) {
+          toast.warning("Video URL has expired, refreshing...", {
+            duration: 3000,
+          });
+          await refreshVideoUrl();
+        }
+      } catch (error) {
+        console.error("Error checking video URL expiration:", error);
+      }
+    };
+    
+    // Check when component mounts
+    checkExpiration();
+    
+    // Set up regular checks (every 5 minutes)
+    const interval = setInterval(checkExpiration, 5 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, [videoUrl, refreshVideoUrl]);
 
-  const handleVideoError = () => {
-    setHasError(true);
-  };
-
-  const retryVideo = async () => {
-    setIsLoading(true);
+  // Handle form submission for new URL
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
     try {
-      await handleExtractOriginalUrl();
-    } finally {
-      setIsLoading(false);
+      if (!inputUrl.trim()) {
+        toast.error("Please enter a valid URL");
+        return;
+      }
+      
+      // Simple validation to ensure it looks like a URL
+      if (!inputUrl.startsWith('http')) {
+        toast.error("URL must start with http:// or https://");
+        return;
+      }
+      
+      setVideoUrl(inputUrl);
+      toast.success("Video source updated");
+    } catch (error) {
+      console.error("Error updating video URL:", error);
+      toast.error("Failed to update video URL");
     }
   };
+
+  // Handle movie ID submission
+  const handleMovieIdSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (!movieId.trim()) {
+        toast.error("Please enter a movie ID");
+        return;
+      }
+      
+      // Format movieId to ensure it has the correct format (tt followed by numbers)
+      let formattedId = movieId;
+      if (!formattedId.startsWith('tt') && !isNaN(Number(formattedId))) {
+        formattedId = `tt${formattedId}`;
+      }
+      
+      // Construct the URL with the movie ID
+      const newUrl = `https://jole340erun.com/play/${formattedId}`;
+      setInputUrl(newUrl);
+      setVideoUrl(newUrl);
+      toast.success(`Loaded movie ID: ${formattedId}`);
+    } catch (error) {
+      console.error("Error updating movie ID:", error);
+      toast.error("Failed to update movie ID");
+    }
+  };
+
+  // Determine if the URL is a stream URL or iframe URL for displaying in the UI
+  const getVideoTypeLabel = (url: string) => {
+    if (url.endsWith('.m3u8') || url.includes('/stream')) {
+      return "Direct Stream";
+    } else if (url.match(/\.(mp4|webm|ogg|mov)$/i) !== null) {
+      return "Video File";
+    }
+    return "Embedded Player";
+  };
+
+  // Extract movie ID from the current URL
+  const extractMovieIdFromUrl = (url: string): string => {
+    try {
+      const parsedUrl = new URL(url);
+      const pathParts = parsedUrl.pathname.split('/');
+      const lastPart = pathParts[pathParts.length - 1];
+      
+      // If it contains a tt ID pattern, return it
+      if (lastPart.startsWith('tt')) {
+        return lastPart;
+      }
+      return "";
+    } catch {
+      return "";
+    }
+  };
+
+  const currentMovieId = extractMovieIdFromUrl(videoUrl);
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto px-4">
       <Card className="w-full shadow-lg border-opacity-50 backdrop-blur-sm bg-white/80 transition-all duration-300">
         <CardHeader>
-          <CardTitle className="text-2xl font-semibold">Movie Player</CardTitle>
+          <CardTitle className="text-2xl font-semibold">Dynamic Video Player</CardTitle>
           <CardDescription>
-            Search for movies by title or ID, then watch in high quality with Plyr
+            Supports both iframe embeds and direct video stream URLs (m3u8, mp4, etc.). You can extract the original direct video URL from iframe embeds.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <MovieSearch onSelectMovie={handleSelectMovie} />
-          
-          <div className="mb-4 p-3 bg-muted/30 rounded-md flex justify-between items-center">
+          <div className="grid gap-6 md:grid-cols-2 mb-6">
             <div>
+              <h3 className="text-sm font-medium mb-2">Enter Video URL</h3>
+              <form onSubmit={handleSubmit} className="flex space-x-2">
+                <Input
+                  type="text"
+                  value={inputUrl}
+                  onChange={(e) => setInputUrl(e.target.value)}
+                  placeholder="Enter video URL (iframe or direct stream)"
+                  className="flex-1"
+                />
+                <Button type="submit" variant="default">
+                  Load URL
+                </Button>
+              </form>
+            </div>
+            
+            <div>
+              <h3 className="text-sm font-medium mb-2">Enter Movie ID</h3>
+              <form onSubmit={handleMovieIdSubmit} className="flex space-x-2">
+                <Input
+                  type="text"
+                  value={movieId}
+                  onChange={(e) => setMovieId(e.target.value)}
+                  placeholder="Enter movie ID (e.g., tt27995594)"
+                  className="flex-1"
+                />
+                <Button type="submit" variant="default">
+                  Load Movie
+                </Button>
+              </form>
+            </div>
+          </div>
+          
+          {currentMovieId && (
+            <div className="mb-4 p-2 bg-muted/30 rounded-md">
               <p className="text-sm">
                 <span className="font-medium">Current Movie ID:</span> 
                 <span className="ml-1">{currentMovieId}</span>
               </p>
             </div>
-            <div className="flex gap-2">
-              {!iframeUrl && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIframeUrl(generateVideoUrlFromId(currentMovieId))}
-                  className="flex items-center gap-1"
-                >
-                  <Film className="h-3.5 w-3.5" />
-                  <span>Show Iframe</span>
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExtractOriginalUrl}
-                disabled={isExtracting}
-                className="flex items-center gap-1 transition-all"
-              >
-                <ExternalLink className={`h-3.5 w-3.5 ${isExtracting ? 'animate-spin' : ''}`} />
-                <span>{isExtracting ? 'Extracting...' : 'Extract & Play'}</span>
-              </Button>
-            </div>
-          </div>
-          
-          <div className="video-container relative">
-            {isExtracting && (
-              <div className="absolute inset-0 z-10 bg-background/80 backdrop-blur-sm flex items-center justify-center animate-fade-in">
-                <div className="video-placeholder animate-shimmer w-full h-full"></div>
-              </div>
-            )}
-
-            {hasError ? (
-              <div className="flex flex-col items-center justify-center h-64 p-8 space-y-4 bg-muted/30 rounded-lg">
-                <Film className="h-12 w-12 text-destructive animate-pulse-opacity" />
-                <div className="text-center">
-                  <h3 className="text-lg font-medium">Video unavailable</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Could not load the video. Please try extracting again.
-                  </p>
-                </div>
-                <Button onClick={retryVideo} variant="outline" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <RefreshCcw className="h-4 w-4 animate-spin mr-2" />
-                      Retrying...
-                    </>
-                  ) : (
-                    'Try Again'
-                  )}
-                </Button>
-              </div>
-            ) : directVideoUrl ? (
-              <PlyrPlayer src={directVideoUrl} onError={handleVideoError} />
-            ) : iframeUrl ? (
-              <div className="relative rounded-lg overflow-hidden" style={{ paddingTop: '56.25%' }}>
-                <iframe 
-                  src={iframeUrl}
-                  className="absolute top-0 left-0 w-full h-full border-0"
-                  allowFullScreen
-                  allow="autoplay; encrypted-media"
-                  id={`movie-iframe-${currentMovieId}`}
-                />
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-64 p-8 space-y-4 bg-muted/30 rounded-lg">
-                <Film className="h-12 w-12 text-muted-foreground" />
-                <div className="text-center">
-                  <h3 className="text-lg font-medium">No video loaded</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Click "Extract & Play" to load the video
-                  </p>
-                </div>
-                <Button onClick={handleExtractOriginalUrl} disabled={isExtracting}>
-                  {isExtracting ? 'Extracting...' : 'Extract & Play'}
-                </Button>
-              </div>
-            )}
-          </div>
-          
-          {directVideoUrl && (
-            <div className="mt-4 p-3 bg-muted/30 rounded-md">
-              <div className="flex justify-between items-center">
-                <p className="text-sm truncate flex-1 mr-2">
-                  <span className="font-medium">Video URL:</span> 
-                  <span className="ml-1 text-muted-foreground text-xs">{directVideoUrl}</span>
-                </p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => navigator.clipboard.writeText(directVideoUrl)}
-                >
-                  Copy URL
-                </Button>
-              </div>
-            </div>
           )}
           
-          {iframeUrl && !directVideoUrl && (
-            <div className="mt-4 p-3 bg-muted/30 rounded-md">
-              <div className="flex justify-between items-center">
-                <p className="text-sm truncate flex-1 mr-2">
-                  <span className="font-medium">Iframe URL:</span> 
-                  <span className="ml-1 text-muted-foreground text-xs">{iframeUrl}</span>
-                </p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => {
-                    setIframeUrl(null);
-                    toast.info("Iframe view closed");
-                  }}
-                >
-                  Close Iframe
-                </Button>
-              </div>
-            </div>
-          )}
+          <div className="mb-4">
+            <p className="text-xs text-muted-foreground">
+              Current video type: <span className="font-medium">{getVideoTypeLabel(videoUrl)}</span>
+            </p>
+          </div>
+          
+          <VideoPlayer
+            initialSrc={videoUrl}
+            refreshInterval={60 * 60 * 1000} // Refresh every hour
+            fetchNewUrl={refreshVideoUrl}
+          />
         </CardContent>
       </Card>
     </div>

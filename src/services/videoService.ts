@@ -1,4 +1,5 @@
-// This service handles fetching video URLs and movie information
+
+// This service handles fetching new video URLs when the old ones expire
 
 /**
  * Interface for video source configuration
@@ -9,18 +10,6 @@ interface VideoSourceConfig {
   authToken?: string;
   params?: Record<string, string>;
   isDirectVideo?: boolean;
-}
-
-/**
- * Movie search result interface
- */
-export interface MovieSearchResult {
-  id: string;
-  title: string;
-  year?: string;
-  poster?: string;
-  rating?: string;
-  genre?: string;
 }
 
 /**
@@ -51,214 +40,116 @@ export const parseVideoUrl = (url: string): VideoSourceConfig | null => {
 };
 
 /**
- * Generate video URL from movie ID
- * @param movieId The movie ID (e.g., tt27995594)
- * @returns Full URL for the video
+ * Fetch a new video URL when the old one expires
+ * This is a mock implementation - replace with your actual API call
+ * @param sourceConfig Information about the video source
+ * @returns A Promise that resolves to the new URL
  */
-export const generateVideoUrlFromId = (movieId: string): string => {
-  // Format the movie ID to ensure it has the correct format (tt followed by numbers)
-  let formattedId = movieId.trim();
-  if (!formattedId.startsWith('tt') && !isNaN(Number(formattedId))) {
-    formattedId = `tt${formattedId}`;
-  }
+export const fetchNewVideoUrl = async (sourceConfig: VideoSourceConfig): Promise<string> => {
+  // In a real implementation, you would:
+  // 1. Call your backend API
+  // 2. The backend would fetch a fresh URL using credentials or tokens
+  // 3. Return the new URL to the client
   
-  return `https://jole340erun.com/play/${formattedId}`;
-};
-
-/**
- * Extract video URL from an iframe element by ID
- * @param iframeId ID of the iframe element
- * @returns Extracted video URL or null if not found
- */
-export const extractVideoFromIframe = (iframeId: string): string | null => {
-  try {
-    const iframe = document.getElementById(iframeId) as HTMLIFrameElement;
-    if (!iframe) return null;
-    
-    // Try to access iframe content (this will fail due to same-origin policy in most cases)
-    // This is just a placeholder for the concept
-    return iframe.src;
-  } catch (error) {
-    console.error("Failed to extract video from iframe:", error);
-    return null;
-  }
-};
-
-/**
- * Create temporary iframe to extract video URL
- * @param url The URL to load in the iframe
- * @returns Promise resolving to the extracted video URL
- */
-export const extractVideoUrlFromPage = async (url: string): Promise<string | null> => {
-  return new Promise((resolve) => {
-    // Create a temporary iframe
-    const tempIframe = document.createElement('iframe');
-    tempIframe.style.display = 'none';
-    tempIframe.src = url;
-    
-    // Set a timeout to prevent hanging if extraction fails
-    const timeoutId = setTimeout(() => {
-      document.body.removeChild(tempIframe);
-      console.warn("Extraction timed out, using fallback URL");
-      resolve(null);
-    }, 5000);
-    
-    // Listen for iframe to load
-    tempIframe.onload = () => {
-      try {
-        // In a real scenario, we would use message passing or other techniques here
-        // For this demo, we'll simulate extraction
-        clearTimeout(timeoutId);
-        document.body.removeChild(tempIframe);
-        resolve(null); // Initial extraction failed
-      } catch (error) {
-        document.body.removeChild(tempIframe);
-        console.error("Error during extraction:", error);
-        resolve(null);
+  // This is a simulation - in production replace with actual API calls
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      // Check if we have valid config
+      if (!sourceConfig.baseUrl || !sourceConfig.videoId) {
+        reject(new Error("Invalid video source configuration"));
+        return;
       }
-    };
-    
-    document.body.appendChild(tempIframe);
+      
+      try {
+        // Handle different URL types
+        let newUrl;
+        
+        if (sourceConfig.isDirectVideo) {
+          // For direct video URLs like m3u8, add a timestamp to force refresh
+          const timestamp = Date.now();
+          if (sourceConfig.baseUrl.includes('i-cdn')) {
+            // Example refresh for stream URLs - in production this would come from your backend
+            newUrl = `${sourceConfig.baseUrl}/stream2/i-cdn-0/42736faa7d17d5e3f3d145baf3850d44/MJTMsp1RshGTygnMNRUR2N2MSlnWXZEdMNDZzQWe5MDZzMmdZJTO1R2RWVHZDljekhkSsl1VwYnWtx2cihVT21keRNTWU1ENadVU69ERJdnWHZUaOp2Y5lleox2TEFEeZp2a0oVbJNTTU1UP:${timestamp}:117.235.253.44:bf32bff0cbfda4dfc7b1d4e32ee4f2644e9d81783c25c1f18e5ec3c261cc0ad9/1080/index.m3u8`;
+          } else {
+            // Generic timestamp append
+            newUrl = `${sourceConfig.baseUrl}${sourceConfig.videoId}?_=${timestamp}`;
+          }
+        } else {
+          // For iframe embed URLs
+          const timestamp = Date.now();
+          newUrl = `${sourceConfig.baseUrl}/play/${sourceConfig.videoId}?refresh=${timestamp}`;
+        }
+        
+        // Log for debugging
+        console.log("Generated new video URL:", newUrl);
+        
+        resolve(newUrl);
+      } catch (error) {
+        reject(error);
+      }
+    }, 1000); // Simulate network delay
+  });
+};
+
+/**
+ * Utility to check if a video URL is likely expired
+ * @param url The URL to check
+ * @returns Boolean indicating if the URL appears to be expired
+ */
+export const isVideoUrlExpired = async (url: string): Promise<boolean> => {
+  // In a real implementation, you would check if the URL is still valid
+  // For example, you might:
+  // 1. Make a HEAD request to the URL
+  // 2. Check the response status
+  
+  // This is a simulation - in production replace with actual checks
+  return new Promise((resolve) => {
+    // Simulate a check by random chance (30% chance of being expired)
+    const isExpired = Math.random() < 0.3;
+    resolve(isExpired);
   });
 };
 
 /**
  * Extract the original video stream URL from an iframe embed page
- * @param movieId The movie ID to extract video for
+ * @param iframeUrl The iframe embed URL
  * @returns A Promise that resolves to the extracted direct video URL or null if not found
  */
-export const extractOriginalVideoUrl = async (movieId: string): Promise<string | null> => {
+export const extractOriginalVideoUrl = async (iframeUrl: string): Promise<string | null> => {
   try {
-    console.log("Attempting to extract original video for movie:", movieId);
+    // In a real implementation, you would:
+    // 1. Make a request to the iframe URL
+    // 2. Parse the HTML response to find the video source
+    // 3. Return the direct video URL
     
-    // Generate the iframe URL
-    const iframeUrl = generateVideoUrlFromId(movieId);
+    // For demonstration purposes, we'll simulate this with a mock implementation
     
-    // Try to extract the video URL from the iframe page
-    const extractedUrl = await extractVideoUrlFromPage(iframeUrl);
+    console.log("Attempting to extract original video from:", iframeUrl);
     
-    if (extractedUrl) {
-      console.log("Successfully extracted URL from iframe:", extractedUrl);
-      return extractedUrl;
+    // Parse the iframe URL
+    const sourceConfig = parseVideoUrl(iframeUrl);
+    if (!sourceConfig) {
+      throw new Error("Invalid iframe URL");
     }
     
-    console.log("Direct extraction failed, using iframe proxy approach");
-    
-    // Create a unique ID for this movie's player
-    const playerId = `movie-player-${movieId}`;
-    
-    // Return a special URL that tells our player to use an iframe with postMessage communication
-    return `iframe://${iframeUrl}?playerId=${playerId}`;
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // Simulate extracting different types of video URLs based on the domain
+        if (iframeUrl.includes('jole340erun.com')) {
+          // For this specific domain, generate a simulated direct stream URL
+          // Importantly, we use a generic structure that doesn't depend on the movie ID
+          const timestamp = Date.now();
+          const simulatedDirectUrl = `https://i-cdn-0.jole340erun.com/stream2/i-cdn-0/42736faa7d17d5e3f3d145baf3850d44/MJTMsp1RshGTygnMNRUR2N2MSlnWXZEdMNDZzQWe5MDZzMmdZJTO1R2RWVHZDljekhkSsl1VwYnWtx2cihVT21keRNTWU1ENadVU69ERJdnWHZUaOp2Y5lleox2TEFEeZp2a0oVbJNTTU1UP:${timestamp}:117.235.253.44:bf32bff0cbfda4dfc7b1d4e32ee4f2644e9d81783c25c1f18e5ec3c261cc0ad9/1080/index.m3u8`;
+          console.log("Extracted direct video URL:", simulatedDirectUrl);
+          resolve(simulatedDirectUrl);
+        } else {
+          // Generic fallback for other domains
+          resolve(null);
+        }
+      }, 1000); // Simulate network delay
+    });
   } catch (error) {
     console.error("Error extracting original video URL:", error);
     return null;
   }
 };
-
-/**
- * Search for movies by title or ID
- * @param query Search query (title or ID)
- * @returns Promise with search results
- */
-export const searchMovies = async (query: string): Promise<MovieSearchResult[]> => {
-  // In a real implementation, you would call an API like OMDB or TMDB
-  console.log("Searching for movies with query:", query);
-  
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // Check if the query looks like a movie ID
-      if (query.startsWith('tt') || !isNaN(Number(query))) {
-        const formattedId = query.startsWith('tt') ? query : `tt${query}`;
-        resolve([
-          { 
-            id: formattedId, 
-            title: `Movie ${formattedId}`,
-            year: "2023",
-            poster: "https://via.placeholder.com/150x225?text=Movie",
-            rating: "8.5",
-            genre: "Action, Drama"
-          }
-        ]);
-      } else {
-        // Generate some mock search results
-        const results: MovieSearchResult[] = [
-          { 
-            id: "tt27995594", 
-            title: `${query} Adventure`, 
-            year: "2023",
-            poster: "https://via.placeholder.com/150x225?text=Adventure",
-            rating: "7.8",
-            genre: "Adventure, Fantasy"
-          },
-          { 
-            id: "tt2062700", 
-            title: `${query} Mystery`, 
-            year: "2022",
-            poster: "https://via.placeholder.com/150x225?text=Mystery",
-            rating: "8.2",
-            genre: "Mystery, Thriller"
-          },
-          { 
-            id: "tt1375666", 
-            title: `${query} Drama`, 
-            year: "2021",
-            poster: "https://via.placeholder.com/150x225?text=Drama",
-            rating: "9.0",
-            genre: "Drama, Sci-Fi"
-          },
-          {
-            id: "tt0111161",
-            title: `The ${query} Redemption`,
-            year: "1994",
-            poster: "https://via.placeholder.com/150x225?text=Classic",
-            rating: "9.3",
-            genre: "Drama"
-          },
-          {
-            id: "tt0468569",
-            title: `The Dark ${query}`,
-            year: "2008",
-            poster: "https://via.placeholder.com/150x225?text=Batman",
-            rating: "9.0",
-            genre: "Action, Crime, Drama"
-          }
-        ];
-        resolve(results);
-      }
-    }, 500);
-  });
-};
-
-/**
- * For real implementation, you would need to connect to a movie database API 
- * such as OMDB API (http://www.omdbapi.com/) or 
- * TMDB API (https://developers.themoviedb.org/3)
- * 
- * Example API integration with TMDB:
- */
-/*
-export const searchMoviesWithTMDB = async (query: string): Promise<MovieSearchResult[]> => {
-  const API_KEY = "your_tmdb_api_key"; // You would need to get this from TMDB
-  const url = `https://api.themoviedb.org/3/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(query)}`;
-  
-  try {
-    const response = await fetch(url);
-    const data = await response.json();
-    
-    if (data.results && Array.isArray(data.results)) {
-      return data.results.map((movie: any) => ({
-        id: movie.id,
-        title: movie.title,
-        year: movie.release_date ? movie.release_date.split('-')[0] : undefined,
-        poster: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : undefined,
-        rating: movie.vote_average ? movie.vote_average.toString() : undefined,
-        genre: movie.genre_ids ? movie.genre_ids.join(', ') : undefined
-      }));
-    }
-    return [];
-  } catch (error) {
-    console.error("Error searching TMDB:", error);
-    return [];
-  }
-};
-*/

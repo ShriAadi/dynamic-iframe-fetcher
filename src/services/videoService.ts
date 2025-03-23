@@ -1,5 +1,5 @@
 
-// This service handles fetching new video URLs when the old ones expire
+// This service handles fetching video URLs and movie information
 
 /**
  * Interface for video source configuration
@@ -10,6 +10,16 @@ interface VideoSourceConfig {
   authToken?: string;
   params?: Record<string, string>;
   isDirectVideo?: boolean;
+}
+
+/**
+ * Movie search result interface
+ */
+export interface MovieSearchResult {
+  id: string;
+  title: string;
+  year?: string;
+  poster?: string;
 }
 
 /**
@@ -40,116 +50,97 @@ export const parseVideoUrl = (url: string): VideoSourceConfig | null => {
 };
 
 /**
- * Fetch a new video URL when the old one expires
- * This is a mock implementation - replace with your actual API call
- * @param sourceConfig Information about the video source
- * @returns A Promise that resolves to the new URL
+ * Generate video URL from movie ID
+ * @param movieId The movie ID (e.g., tt27995594)
+ * @returns Full URL for the video
  */
-export const fetchNewVideoUrl = async (sourceConfig: VideoSourceConfig): Promise<string> => {
-  // In a real implementation, you would:
-  // 1. Call your backend API
-  // 2. The backend would fetch a fresh URL using credentials or tokens
-  // 3. Return the new URL to the client
+export const generateVideoUrlFromId = (movieId: string): string => {
+  // Format the movie ID to ensure it has the correct format (tt followed by numbers)
+  let formattedId = movieId.trim();
+  if (!formattedId.startsWith('tt') && !isNaN(Number(formattedId))) {
+    formattedId = `tt${formattedId}`;
+  }
   
-  // This is a simulation - in production replace with actual API calls
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      // Check if we have valid config
-      if (!sourceConfig.baseUrl || !sourceConfig.videoId) {
-        reject(new Error("Invalid video source configuration"));
-        return;
-      }
-      
-      try {
-        // Handle different URL types
-        let newUrl;
-        
-        if (sourceConfig.isDirectVideo) {
-          // For direct video URLs like m3u8, add a timestamp to force refresh
-          const timestamp = Date.now();
-          if (sourceConfig.baseUrl.includes('i-cdn')) {
-            // Example refresh for stream URLs - in production this would come from your backend
-            newUrl = `${sourceConfig.baseUrl}/stream2/i-cdn-0/42736faa7d17d5e3f3d145baf3850d44/MJTMsp1RshGTygnMNRUR2N2MSlnWXZEdMNDZzQWe5MDZzMmdZJTO1R2RWVHZDljekhkSsl1VwYnWtx2cihVT21keRNTWU1ENadVU69ERJdnWHZUaOp2Y5lleox2TEFEeZp2a0oVbJNTTU1UP:${timestamp}:117.235.253.44:bf32bff0cbfda4dfc7b1d4e32ee4f2644e9d81783c25c1f18e5ec3c261cc0ad9/1080/index.m3u8`;
-          } else {
-            // Generic timestamp append
-            newUrl = `${sourceConfig.baseUrl}${sourceConfig.videoId}?_=${timestamp}`;
-          }
-        } else {
-          // For iframe embed URLs
-          const timestamp = Date.now();
-          newUrl = `${sourceConfig.baseUrl}/play/${sourceConfig.videoId}?refresh=${timestamp}`;
-        }
-        
-        // Log for debugging
-        console.log("Generated new video URL:", newUrl);
-        
-        resolve(newUrl);
-      } catch (error) {
-        reject(error);
-      }
-    }, 1000); // Simulate network delay
-  });
-};
-
-/**
- * Utility to check if a video URL is likely expired
- * @param url The URL to check
- * @returns Boolean indicating if the URL appears to be expired
- */
-export const isVideoUrlExpired = async (url: string): Promise<boolean> => {
-  // In a real implementation, you would check if the URL is still valid
-  // For example, you might:
-  // 1. Make a HEAD request to the URL
-  // 2. Check the response status
-  
-  // This is a simulation - in production replace with actual checks
-  return new Promise((resolve) => {
-    // Simulate a check by random chance (30% chance of being expired)
-    const isExpired = Math.random() < 0.3;
-    resolve(isExpired);
-  });
+  return `https://jole340erun.com/play/${formattedId}`;
 };
 
 /**
  * Extract the original video stream URL from an iframe embed page
- * @param iframeUrl The iframe embed URL
+ * @param movieId The movie ID to extract video for
  * @returns A Promise that resolves to the extracted direct video URL or null if not found
  */
-export const extractOriginalVideoUrl = async (iframeUrl: string): Promise<string | null> => {
+export const extractOriginalVideoUrl = async (movieId: string): Promise<string | null> => {
   try {
     // In a real implementation, you would:
     // 1. Make a request to the iframe URL
     // 2. Parse the HTML response to find the video source
     // 3. Return the direct video URL
     
+    console.log("Attempting to extract original video for movie:", movieId);
+    
     // For demonstration purposes, we'll simulate this with a mock implementation
-    
-    console.log("Attempting to extract original video from:", iframeUrl);
-    
-    // Parse the iframe URL
-    const sourceConfig = parseVideoUrl(iframeUrl);
-    if (!sourceConfig) {
-      throw new Error("Invalid iframe URL");
-    }
-    
     return new Promise((resolve) => {
       setTimeout(() => {
-        // Simulate extracting different types of video URLs based on the domain
-        if (iframeUrl.includes('jole340erun.com')) {
-          // For this specific domain, generate a simulated direct stream URL
-          // Importantly, we use a generic structure that doesn't depend on the movie ID
-          const timestamp = Date.now();
-          const simulatedDirectUrl = `https://i-cdn-0.jole340erun.com/stream2/i-cdn-0/42736faa7d17d5e3f3d145baf3850d44/MJTMsp1RshGTygnMNRUR2N2MSlnWXZEdMNDZzQWe5MDZzMmdZJTO1R2RWVHZDljekhkSsl1VwYnWtx2cihVT21keRNTWU1ENadVU69ERJdnWHZUaOp2Y5lleox2TEFEeZp2a0oVbJNTTU1UP:${timestamp}:117.235.253.44:bf32bff0cbfda4dfc7b1d4e32ee4f2644e9d81783c25c1f18e5ec3c261cc0ad9/1080/index.m3u8`;
-          console.log("Extracted direct video URL:", simulatedDirectUrl);
-          resolve(simulatedDirectUrl);
-        } else {
-          // Generic fallback for other domains
-          resolve(null);
-        }
+        // Generate a simulated direct stream URL
+        const timestamp = Date.now();
+        const simulatedDirectUrl = `https://i-cdn-0.jole340erun.com/stream2/i-cdn-0/42736faa7d17d5e3f3d145baf3850d44/MJTMsp1RshGTygnMNRUR2N2MSlnWXZEdMNDZzQWe5MDZzMmdZJTO1R2RWVHZDljekhkSsl1VwYnWtx2cihVT21keRNTWU1ENadVU69ERJdnWHZUaOp2Y5lleox2TEFEeZp2a0oVbJNTTU1UP:${timestamp}:117.235.253.44:bf32bff0cbfda4dfc7b1d4e32ee4f2644e9d81783c25c1f18e5ec3c261cc0ad9/1080/index.m3u8`;
+        console.log("Extracted direct video URL:", simulatedDirectUrl);
+        resolve(simulatedDirectUrl);
       }, 1000); // Simulate network delay
     });
   } catch (error) {
     console.error("Error extracting original video URL:", error);
     return null;
   }
+};
+
+/**
+ * Search for movies by title or ID
+ * @param query Search query (title or ID)
+ * @returns Promise with search results
+ */
+export const searchMovies = async (query: string): Promise<MovieSearchResult[]> => {
+  // In a real implementation, you would call an API to search for movies
+  // For demonstration, we'll return mock results
+  console.log("Searching for movies with query:", query);
+  
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // Check if the query looks like a movie ID
+      if (query.startsWith('tt') || !isNaN(Number(query))) {
+        const formattedId = query.startsWith('tt') ? query : `tt${query}`;
+        resolve([
+          { 
+            id: formattedId, 
+            title: `Movie ${formattedId}`, 
+            year: "2023",
+            poster: "https://via.placeholder.com/150x225?text=Movie" 
+          }
+        ]);
+      } else {
+        // Generate some mock search results
+        const results: MovieSearchResult[] = [
+          { 
+            id: "tt27995594", 
+            title: `${query} Adventure`, 
+            year: "2023",
+            poster: "https://via.placeholder.com/150x225?text=Adventure" 
+          },
+          { 
+            id: "tt2062700", 
+            title: `${query} Mystery`, 
+            year: "2022",
+            poster: "https://via.placeholder.com/150x225?text=Mystery" 
+          },
+          { 
+            id: "tt1375666", 
+            title: `${query} Drama`, 
+            year: "2021",
+            poster: "https://via.placeholder.com/150x225?text=Drama" 
+          }
+        ];
+        resolve(results);
+      }
+    }, 500);
+  });
 };

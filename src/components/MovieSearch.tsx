@@ -2,10 +2,9 @@
 import React, { useState } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Film } from "lucide-react";
+import { Search, Film, Star } from "lucide-react";
 import { searchMovies, MovieSearchResult } from '@/services/videoService';
 import { toast } from "sonner";
-import { Card, CardContent } from "@/components/ui/card";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 
 interface MovieSearchProps {
@@ -89,29 +88,38 @@ const MovieSearch: React.FC<MovieSearchProps> = ({ onSelectMovie }) => {
                 <CommandItem
                   key={movie.id}
                   onSelect={() => handleSelectMovie(movie)}
-                  className="flex items-center gap-2 p-2 cursor-pointer"
+                  className="flex items-center gap-2 p-2 cursor-pointer hover:bg-accent"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 w-full">
                     {movie.poster ? (
                       <img 
                         src={movie.poster} 
                         alt={movie.title} 
-                        className="h-12 w-9 object-cover rounded"
+                        className="h-20 w-14 object-cover rounded"
                       />
                     ) : (
-                      <div className="h-12 w-9 bg-muted flex items-center justify-center rounded">
-                        <Film className="h-4 w-4" />
+                      <div className="h-20 w-14 bg-muted flex items-center justify-center rounded">
+                        <Film className="h-6 w-6" />
                       </div>
                     )}
-                    <div>
-                      <p className="font-medium">{movie.title}</p>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">{movie.id}</span>
+                    <div className="flex-1">
+                      <p className="font-medium text-base">{movie.title}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{movie.id}</span>
                         {movie.year && (
-                          <span className="text-xs text-muted-foreground">({movie.year})</span>
+                          <span>({movie.year})</span>
                         )}
                       </div>
+                      {movie.genre && (
+                        <p className="text-xs text-muted-foreground mt-1">{movie.genre}</p>
+                      )}
                     </div>
+                    {movie.rating && (
+                      <div className="flex items-center bg-amber-100 px-2 py-1 rounded">
+                        <Star className="h-3 w-3 fill-amber-500 text-amber-500 mr-1" />
+                        <span className="text-xs font-medium text-amber-800">{movie.rating}</span>
+                      </div>
+                    )}
                   </div>
                 </CommandItem>
               ))}

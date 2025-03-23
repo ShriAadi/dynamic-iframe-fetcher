@@ -20,6 +20,8 @@ export interface MovieSearchResult {
   title: string;
   year?: string;
   poster?: string;
+  rating?: string;
+  genre?: string;
 }
 
 /**
@@ -81,9 +83,10 @@ export const extractOriginalVideoUrl = async (movieId: string): Promise<string |
     // For demonstration purposes, we'll simulate this with a mock implementation
     return new Promise((resolve) => {
       setTimeout(() => {
-        // Generate a simulated direct stream URL
+        // Generate a simulated direct stream URL that's more likely to work with HLS.js
         const timestamp = Date.now();
-        const simulatedDirectUrl = `https://i-cdn-0.jole340erun.com/stream2/i-cdn-0/42736faa7d17d5e3f3d145baf3850d44/MJTMsp1RshGTygnMNRUR2N2MSlnWXZEdMNDZzQWe5MDZzMmdZJTO1R2RWVHZDljekhkSsl1VwYnWtx2cihVT21keRNTWU1ENadVU69ERJdnWHZUaOp2Y5lleox2TEFEeZp2a0oVbJNTTU1UP:${timestamp}:117.235.253.44:bf32bff0cbfda4dfc7b1d4e32ee4f2644e9d81783c25c1f18e5ec3c261cc0ad9/1080/index.m3u8`;
+        // This is a public test HLS stream that actually works with HLS.js
+        const simulatedDirectUrl = `https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8`;
         console.log("Extracted direct video URL:", simulatedDirectUrl);
         resolve(simulatedDirectUrl);
       }, 1000); // Simulate network delay
@@ -100,8 +103,7 @@ export const extractOriginalVideoUrl = async (movieId: string): Promise<string |
  * @returns Promise with search results
  */
 export const searchMovies = async (query: string): Promise<MovieSearchResult[]> => {
-  // In a real implementation, you would call an API to search for movies
-  // For demonstration, we'll return mock results
+  // In a real implementation, you would call an API like OMDB or TMDB
   console.log("Searching for movies with query:", query);
   
   return new Promise((resolve) => {
@@ -112,9 +114,11 @@ export const searchMovies = async (query: string): Promise<MovieSearchResult[]> 
         resolve([
           { 
             id: formattedId, 
-            title: `Movie ${formattedId}`, 
+            title: `Movie ${formattedId}`,
             year: "2023",
-            poster: "https://via.placeholder.com/150x225?text=Movie" 
+            poster: "https://via.placeholder.com/150x225?text=Movie",
+            rating: "8.5",
+            genre: "Action, Drama"
           }
         ]);
       } else {
@@ -124,19 +128,41 @@ export const searchMovies = async (query: string): Promise<MovieSearchResult[]> 
             id: "tt27995594", 
             title: `${query} Adventure`, 
             year: "2023",
-            poster: "https://via.placeholder.com/150x225?text=Adventure" 
+            poster: "https://via.placeholder.com/150x225?text=Adventure",
+            rating: "7.8",
+            genre: "Adventure, Fantasy"
           },
           { 
             id: "tt2062700", 
             title: `${query} Mystery`, 
             year: "2022",
-            poster: "https://via.placeholder.com/150x225?text=Mystery" 
+            poster: "https://via.placeholder.com/150x225?text=Mystery",
+            rating: "8.2",
+            genre: "Mystery, Thriller"
           },
           { 
             id: "tt1375666", 
             title: `${query} Drama`, 
             year: "2021",
-            poster: "https://via.placeholder.com/150x225?text=Drama" 
+            poster: "https://via.placeholder.com/150x225?text=Drama",
+            rating: "9.0",
+            genre: "Drama, Sci-Fi"
+          },
+          {
+            id: "tt0111161",
+            title: `The ${query} Redemption`,
+            year: "1994",
+            poster: "https://via.placeholder.com/150x225?text=Classic",
+            rating: "9.3",
+            genre: "Drama"
+          },
+          {
+            id: "tt0468569",
+            title: `The Dark ${query}`,
+            year: "2008",
+            poster: "https://via.placeholder.com/150x225?text=Batman",
+            rating: "9.0",
+            genre: "Action, Crime, Drama"
           }
         ];
         resolve(results);
@@ -144,3 +170,37 @@ export const searchMovies = async (query: string): Promise<MovieSearchResult[]> 
     }, 500);
   });
 };
+
+/**
+ * For real implementation, you would need to connect to a movie database API 
+ * such as OMDB API (http://www.omdbapi.com/) or 
+ * TMDB API (https://developers.themoviedb.org/3)
+ * 
+ * Example API integration with TMDB:
+ */
+/*
+export const searchMoviesWithTMDB = async (query: string): Promise<MovieSearchResult[]> => {
+  const API_KEY = "your_tmdb_api_key"; // You would need to get this from TMDB
+  const url = `https://api.themoviedb.org/3/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(query)}`;
+  
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.results && Array.isArray(data.results)) {
+      return data.results.map((movie: any) => ({
+        id: movie.id,
+        title: movie.title,
+        year: movie.release_date ? movie.release_date.split('-')[0] : undefined,
+        poster: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : undefined,
+        rating: movie.vote_average ? movie.vote_average.toString() : undefined,
+        genre: movie.genre_ids ? movie.genre_ids.join(', ') : undefined
+      }));
+    }
+    return [];
+  } catch (error) {
+    console.error("Error searching TMDB:", error);
+    return [];
+  }
+};
+*/

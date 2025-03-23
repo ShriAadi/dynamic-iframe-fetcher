@@ -3,6 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import Plyr from 'plyr-react';
 import 'plyr-react/plyr.css';
 import { toast } from "sonner";
+import { APITypes } from 'plyr-react';
 
 interface PlyrPlayerProps {
   src: string;
@@ -10,7 +11,7 @@ interface PlyrPlayerProps {
 }
 
 const PlyrPlayer: React.FC<PlyrPlayerProps> = ({ src, onError }) => {
-  const playerRef = useRef<Plyr>(null);
+  const playerRef = useRef<APITypes>(null);
 
   useEffect(() => {
     // Reset the player when src changes

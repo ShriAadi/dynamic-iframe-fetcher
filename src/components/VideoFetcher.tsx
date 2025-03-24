@@ -2,45 +2,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import VideoPlayer from './VideoPlayer';
 import { parseVideoUrl, fetchNewVideoUrl, isVideoUrlExpired } from '@/services/videoService';
+import { searchMovies, TMDBMovieResult, getPosterUrl } from '@/services/tmdbService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Search } from "lucide-react";
+import { Search, Film, Loader2 } from "lucide-react";
 import { useDebounce } from '@/hooks/useDebounce';
 
 interface VideoFetcherProps {
   defaultVideoUrl?: string;
 }
-
-// Mock movie search API
-const searchMovies = async (query: string): Promise<Array<{id: string, title: string}>> => {
-  // This would typically be an API call to your movie database
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // Mock movie database with some sample movies
-      const movies = [
-        { id: 'tt27995594', title: 'Alien: Romulus' },
-        { id: 'tt0111161', title: 'The Shawshank Redemption' },
-        { id: 'tt0468569', title: 'The Dark Knight' },
-        { id: 'tt1375666', title: 'Inception' },
-        { id: 'tt0120737', title: 'The Lord of the Rings: The Fellowship of the Ring' },
-        { id: 'tt0120689', title: 'The Green Mile' },
-        { id: 'tt0109830', title: 'Forrest Gump' },
-        { id: 'tt0133093', title: 'The Matrix' },
-      ];
-
-      // Filter movies based on query
-      const results = query 
-        ? movies.filter(movie => 
-            movie.title.toLowerCase().includes(query.toLowerCase())
-          )
-        : [];
-      
-      resolve(results);
-    }, 300);
-  });
-};
 
 const VideoFetcher: React.FC<VideoFetcherProps> = ({ 
   defaultVideoUrl = "https://jole340erun.com/play/tt27995594" 
@@ -48,10 +20,10 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
   const [videoUrl, setVideoUrl] = useState<string>(defaultVideoUrl);
   const [movieId, setMovieId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [searchResults, setSearchResults] = useState<Array<{id: string, title: string}>>([]);
+  const [searchResults, setSearchResults] = useState<TMDBMovieResult[]>([]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
   
-  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Function to refresh the video URL
   const refreshVideoUrl = useCallback(async (): Promise<string> => {
@@ -99,7 +71,7 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
   // Handle search query changes
   useEffect(() => {
     const performSearch = async () => {
-      if (debouncedSearchQuery) {
+      if (debouncedSearchQuery && debouncedSearchQuery.length >= 2) {
         setIsSearching(true);
         try {
           const results = await searchMovies(debouncedSearchQuery);
@@ -118,13 +90,11 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
     performSearch();
   }, [debouncedSearchQuery]);
 
-  // Handle movie selection
-  const handleMovieSelect = (movieId: string, title: string) => {
-    // Format movieId to ensure it has the correct format (tt followed by numbers)
-    let formattedId = movieId;
-    if (!formattedId.startsWith('tt') && !isNaN(Number(formattedId))) {
-      formattedId = `tt${formattedId}`;
-    }
+  // Handle movie selection from TMDB results
+  const handleMovieSelect = (movie: TMDBMovieResult) => {
+    // Convert TMDB ID to IMDB ID format (this is a mock conversion - in a real app you'd use an API)
+    // In a real implementation, you might need to use another API endpoint to get the actual IMDB ID
+    const formattedId = `tt${movie.id}`;
     
     // Construct the URL with the movie ID
     const newUrl = `https://jole340erun.com/play/${formattedId}`;
@@ -132,8 +102,8 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
     setMovieId(formattedId);
     setSearchQuery("");
     setSearchResults([]);
-    toast.success(`Loading: ${title}`, {
-      description: `Movie ID: ${formattedId}`
+    toast.success(`Loading: ${movie.title}`, {
+      description: `Release date: ${movie.release_date || 'Unknown'}`
     });
   };
 
@@ -211,31 +181,56 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search movies by name..."
+                  placeholder="Search for movies by title..."
                   className="pl-10"
                 />
               </div>
               
               {isSearching && (
-                <div className="mt-2">
-                  <p className="text-sm text-muted-foreground">Searching...</p>
+                <div className="mt-2 flex items-center space-x-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Searching TMDB...</span>
                 </div>
               )}
               
               {searchResults.length > 0 && (
                 <div className="mt-2 border rounded-md shadow-sm max-h-60 overflow-y-auto">
-                  <ul className="py-1">
+                  <ul className="py-1 divide-y divide-gray-100">
                     {searchResults.map((movie) => (
                       <li 
                         key={movie.id}
-                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer transition-colors"
-                        onClick={() => handleMovieSelect(movie.id, movie.title)}
+                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer transition-colors flex items-center gap-3"
+                        onClick={() => handleMovieSelect(movie)}
                       >
-                        <p className="text-sm font-medium">{movie.title}</p>
-                        <p className="text-xs text-muted-foreground">{movie.id}</p>
+                        {movie.poster_path ? (
+                          <img 
+                            src={getPosterUrl(movie.poster_path, 'w92')} 
+                            alt={movie.title}
+                            className="h-16 w-12 object-cover rounded"
+                          />
+                        ) : (
+                          <div className="h-16 w-12 bg-gray-200 rounded flex items-center justify-center">
+                            <Film className="h-6 w-6 text-gray-400" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{movie.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {movie.release_date ? new Date(movie.release_date).getFullYear() : 'Unknown year'}
+                          </p>
+                          <p className="text-xs text-muted-foreground line-clamp-1">
+                            {movie.overview || 'No overview available'}
+                          </p>
+                        </div>
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+              
+              {debouncedSearchQuery && !isSearching && searchResults.length === 0 && (
+                <div className="mt-2 p-3 text-sm text-muted-foreground bg-muted/30 rounded">
+                  No movies found matching "{debouncedSearchQuery}"
                 </div>
               )}
             </div>

@@ -14,7 +14,10 @@ const Index = () => {
         </header>
 
         <main>
-          <VideoFetcher defaultVideoUrl="https://jole340erun.com/play/tt27995594" />
+          <VideoFetcher 
+            defaultVideoUrl="https://jole340erun.com/play/tt27995594" 
+            key="video-fetcher" // Adding a stable key to maintain state between renders
+          />
         </main>
 
         <footer className="mt-20 text-center text-sm text-muted-foreground">

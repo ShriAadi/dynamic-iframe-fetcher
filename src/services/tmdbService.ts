@@ -36,6 +36,40 @@ interface TMDBMovieDetails extends TMDBMovieResult {
 }
 
 /**
+ * Get trending movies, optionally filtered by region
+ * @param region ISO 3166-1 region code (e.g., 'in' for India)
+ * @returns Promise with trending movies
+ */
+export const getTrendingMovies = async (region?: string): Promise<TMDBMovieResult[]> => {
+  try {
+    let url = `${TMDB_API_BASE_URL}/trending/movie/day?api_key=${TMDB_API_KEY}`;
+    
+    // Add region parameter if provided
+    if (region) {
+      url += `&region=${region}`;
+    }
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`TMDB API error: ${response.status}`);
+    }
+    
+    const data: TMDBSearchResponse = await response.json();
+    
+    // If region is specified but we got no region-specific results, try again without region filter
+    if (region && data.results.length === 0) {
+      return getTrendingMovies();
+    }
+    
+    return data.results;
+  } catch (error) {
+    console.error('Error getting trending movies:', error);
+    throw error;
+  }
+};
+
+/**
  * Search movies from TMDB API
  * @param query Search query string
  * @returns Promise with search results

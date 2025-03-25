@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import VideoPlayer from './VideoPlayer';
 import { parseVideoUrl, fetchNewVideoUrl, isVideoUrlExpired } from '@/services/videoService';
-import { searchMovies, TMDBMovieResult, getPosterUrl, getImdbId } from '@/services/tmdbService';
+import { searchMovies, TMDBMovieResult, getPosterUrl, getImdbId, getTrendingMovies } from '@/services/tmdbService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,25 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
   
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const isMobile = useIsMobile();
+
+  // Load trending Indian movies on initial mount
+  useEffect(() => {
+    const loadTrendingIndianMovies = async () => {
+      try {
+        const trending = await getTrendingMovies('in'); // 'in' for India
+        if (trending && trending.length > 0) {
+          // Select a random movie from trending list
+          const randomIndex = Math.floor(Math.random() * Math.min(5, trending.length));
+          const randomMovie = trending[randomIndex];
+          handleMovieSelect(randomMovie);
+        }
+      } catch (error) {
+        console.error("Failed to load trending Indian movies:", error);
+      }
+    };
+    
+    loadTrendingIndianMovies();
+  }, []);
 
   // Function to refresh the video URL
   const refreshVideoUrl = useCallback(async (): Promise<string> => {
@@ -153,16 +172,6 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
     }
   };
 
-  // Determine if the URL is a stream URL or iframe URL for displaying in the UI
-  const getVideoTypeLabel = (url: string) => {
-    if (url.endsWith('.m3u8') || url.includes('/stream')) {
-      return "Direct Stream";
-    } else if (url.match(/\.(mp4|webm|ogg|mov)$/i) !== null) {
-      return "Video File";
-    }
-    return "Embedded Player";
-  };
-
   // Extract movie ID from the current URL
   const extractMovieIdFromUrl = (url: string): string => {
     try {
@@ -286,9 +295,10 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
             </div>
           )}
           
+          {/* Removed video type and source info, now showing the movie title */}
           <div className="mb-3 sm:mb-4">
-            <p className="text-xs text-muted-foreground">
-              Current video type: <span className="font-medium">{getVideoTypeLabel(videoUrl)}</span>
+            <p className="text-base font-medium">
+              {selectedMovieTitle ? selectedMovieTitle : "Loading movie..."}
             </p>
           </div>
           
@@ -306,6 +316,7 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
                 refreshInterval={60 * 60 * 1000} // Refresh every hour
                 fetchNewUrl={refreshVideoUrl}
                 key={videoUrl} // Add a key that changes when the video URL changes to force re-mount
+                movieTitle={selectedMovieTitle} // Pass movie title to video player
               />
             </div>
           )}

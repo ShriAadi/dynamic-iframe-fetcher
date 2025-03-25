@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -10,6 +11,7 @@ interface VideoPlayerProps {
   height?: number;
   refreshInterval?: number; // in milliseconds
   fetchNewUrl?: () => Promise<string>;
+  movieTitle?: string;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -18,6 +20,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   height = 453,
   refreshInterval = 3600000, // Default to 1 hour
   fetchNewUrl,
+  movieTitle = "",
 }) => {
   const [videoSrc, setVideoSrc] = useState<string>(initialSrc);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -34,20 +37,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
            url.match(/\.(mp4|webm|ogg|mov)$/i) !== null;
   };
 
-  const extractVideoInfo = (src: string) => {
-    try {
-      const url = new URL(src);
-      return {
-        domain: url.hostname,
-        videoId: url.pathname.split('/').pop() || ''
-      };
-    } catch (error) {
-      console.error("Invalid URL:", src);
-      return { domain: 'unknown', videoId: 'unknown' };
-    }
-  };
-
-  const { domain, videoId } = extractVideoInfo(initialSrc);
+  // Update video source when initialSrc changes
+  useEffect(() => {
+    setVideoSrc(initialSrc);
+  }, [initialSrc]);
 
   const refreshVideoUrl = async () => {
     setIsLoading(true);
@@ -92,7 +85,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       const extractedUrl = await extractOriginalVideoUrl(videoSrc);
       if (extractedUrl) {
         setOriginalVideoUrl(extractedUrl);
-        toast.success("Original video URL extracted successfully");
+        setVideoSrc(extractedUrl); // Automatically use the direct URL
+        toast.success("Using direct video stream for better TV compatibility");
       } else {
         toast.error("Could not extract original video URL");
       }
@@ -108,6 +102,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (refreshInterval > 0) {
       timerRef.current = setInterval(refreshVideoUrl, refreshInterval);
     }
+
+    // If this is an Android TV or large format device, try to extract the direct URL for better compatibility
+    const checkAndExtractForTV = async () => {
+      // Only do this for iframe sources
+      if (!isDirectVideoUrl(videoSrc) && !originalVideoUrl) {
+        await handleExtractOriginal();
+      }
+    };
+    
+    checkAndExtractForTV();
 
     return () => {
       if (timerRef.current) {
@@ -141,12 +145,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <p className="text-sm font-medium text-muted-foreground">
-            Source: {extractVideoInfo(videoSrc).domain}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Video ID: {extractVideoInfo(videoSrc).videoId}
-          </p>
+          {/* Show movie title instead of domain info */}
+          <h3 className="text-base md:text-lg font-medium">
+            {movieTitle}
+          </h3>
         </div>
         <div className="flex gap-2">
           {!isDirectVideoUrl(videoSrc) && (
@@ -174,30 +176,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       </div>
 
-      {originalVideoUrl && (
+      {originalVideoUrl && videoSrc !== originalVideoUrl && (
         <div className="p-3 bg-muted/30 rounded-md mb-4">
           <div className="flex justify-between items-center">
-            <p className="text-sm truncate flex-1 mr-2">
-              <span className="font-medium">Original URL:</span> 
-              <span className="ml-1 text-muted-foreground">{originalVideoUrl}</span>
+            <p className="text-sm">
+              <span className="font-medium">Direct streaming available</span>
             </p>
             <div className="flex gap-2">
               <Button 
-                variant="outline" 
+                variant="default" 
                 size="sm" 
-                onClick={() => copyToClipboard(originalVideoUrl)}
+                onClick={switchToOriginalSource}
               >
-                Copy
+                Use Direct Stream
               </Button>
-              {videoSrc !== originalVideoUrl && (
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  onClick={switchToOriginalSource}
-                >
-                  Use This Source
-                </Button>
-              )}
             </div>
           </div>
         </div>
@@ -231,9 +223,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             height={height}
             controls
             autoPlay
-            className="w-full rounded-lg transition-opacity duration-300 ease-in-out"
+            className="w-full aspect-video rounded-lg transition-opacity duration-300 ease-in-out"
             style={{ opacity: isLoading ? 0.3 : 1 }}
             onError={handleMediaError}
+            playsInline // Better mobile experience
           >
             Your browser does not support the video tag.
           </video>
@@ -245,10 +238,37 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             height={height}
             frameBorder="0"
             allowFullScreen={true}
-            className="w-full rounded-lg transition-opacity duration-300 ease-in-out"
+            className="w-full aspect-video rounded-lg transition-opacity duration-300 ease-in-out"
             style={{ opacity: isLoading ? 0.3 : 1 }}
             onError={handleMediaError}
           />
+        )}
+      </div>
+      
+      {/* TV-friendly controls - bigger touch targets */}
+      <div className="grid grid-cols-2 gap-3 mt-4 tv-controls">
+        <Button 
+          variant="outline" 
+          size="lg" 
+          onClick={refreshVideoUrl}
+          className="text-lg py-6 tv-button"
+          disabled={isLoading}
+        >
+          <RefreshCcw className="h-6 w-6 mr-2" />
+          Refresh Video
+        </Button>
+        
+        {!isDirectVideoUrl(videoSrc) && (
+          <Button 
+            variant="default" 
+            size="lg" 
+            onClick={handleExtractOriginal}
+            className="text-lg py-6 tv-button"
+            disabled={isExtracting}
+          >
+            <ExternalLink className="h-6 w-6 mr-2" />
+            Get Direct Stream
+          </Button>
         )}
       </div>
     </div>

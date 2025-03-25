@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import VideoFetcher from '@/components/VideoFetcher';
 
 const Index = () => {
@@ -9,7 +9,7 @@ const Index = () => {
         <header className="text-center mb-16">
           <h1 className="text-4xl font-bold tracking-tight mb-4">Dynamic Video Player</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            A sophisticated solution for handling auto-expiring video URLs
+            Search and play movies from various sources
           </p>
         </header>
 

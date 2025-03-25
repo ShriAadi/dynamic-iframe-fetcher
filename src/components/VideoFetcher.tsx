@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import VideoPlayer from './VideoPlayer';
 import { parseVideoUrl, fetchNewVideoUrl, isVideoUrlExpired } from '@/services/videoService';
-import { searchMovies, TMDBMovieResult, getPosterUrl } from '@/services/tmdbService';
+import { searchMovies, TMDBMovieResult, getPosterUrl, getImdbId } from '@/services/tmdbService';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,8 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [searchResults, setSearchResults] = useState<TMDBMovieResult[]>([]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [isLoadingMovie, setIsLoadingMovie] = useState<boolean>(false);
+  const [selectedMovieTitle, setSelectedMovieTitle] = useState<string>("");
   
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
@@ -91,20 +93,36 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
   }, [debouncedSearchQuery]);
 
   // Handle movie selection from TMDB results
-  const handleMovieSelect = (movie: TMDBMovieResult) => {
-    // Convert TMDB ID to IMDB ID format (this is a mock conversion - in a real app you'd use an API)
-    // In a real implementation, you might need to use another API endpoint to get the actual IMDB ID
-    const formattedId = `tt${movie.id}`;
+  const handleMovieSelect = async (movie: TMDBMovieResult) => {
+    setIsLoadingMovie(true);
+    setSelectedMovieTitle(movie.title);
     
-    // Construct the URL with the movie ID
-    const newUrl = `https://jole340erun.com/play/${formattedId}`;
-    setVideoUrl(newUrl);
-    setMovieId(formattedId);
-    setSearchQuery("");
-    setSearchResults([]);
-    toast.success(`Loading: ${movie.title}`, {
-      description: `Release date: ${movie.release_date || 'Unknown'}`
-    });
+    try {
+      // Get IMDB ID for the selected movie
+      const imdbId = await getImdbId(movie.id);
+      
+      if (!imdbId) {
+        toast.error(`Could not find IMDB ID for "${movie.title}"`);
+        setIsLoadingMovie(false);
+        return;
+      }
+      
+      // Construct the URL with the IMDB ID
+      const newUrl = `https://jole340erun.com/play/${imdbId}`;
+      setVideoUrl(newUrl);
+      setMovieId(imdbId);
+      setSearchQuery("");
+      setSearchResults([]);
+      
+      toast.success(`Loading: ${movie.title}`, {
+        description: `Release date: ${movie.release_date || 'Unknown'}`
+      });
+    } catch (error) {
+      console.error("Error loading movie:", error);
+      toast.error(`Failed to load "${movie.title}"`);
+    } finally {
+      setIsLoadingMovie(false);
+    }
   };
 
   // Handle movie ID submission
@@ -125,6 +143,7 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
       // Construct the URL with the movie ID
       const newUrl = `https://jole340erun.com/play/${formattedId}`;
       setVideoUrl(newUrl);
+      setSelectedMovieTitle("Movie Video Player"); // Reset title if entering direct ID
       toast.success(`Loaded movie ID: ${formattedId}`);
     } catch (error) {
       console.error("Error updating movie ID:", error);
@@ -165,7 +184,9 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
     <div className="space-y-8 max-w-4xl mx-auto px-4">
       <Card className="w-full shadow-lg border-opacity-50 backdrop-blur-sm bg-white/80 transition-all duration-300">
         <CardHeader>
-          <CardTitle className="text-2xl font-semibold">Dynamic Video Player</CardTitle>
+          <CardTitle className="text-2xl font-semibold">
+            {selectedMovieTitle || "Dynamic Video Player"}
+          </CardTitle>
           <CardDescription>
             Search for movies by name or enter a movie ID directly.
           </CardDescription>
@@ -267,12 +288,21 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
             </p>
           </div>
           
-          <VideoPlayer
-            initialSrc={videoUrl}
-            refreshInterval={60 * 60 * 1000} // Refresh every hour
-            fetchNewUrl={refreshVideoUrl}
-            key={videoUrl} // Add a key that changes when the video URL changes to force re-mount
-          />
+          {isLoadingMovie ? (
+            <div className="flex items-center justify-center p-16">
+              <div className="text-center">
+                <Loader2 className="h-10 w-10 animate-spin mx-auto mb-4 text-primary" />
+                <p className="text-muted-foreground">Loading movie...</p>
+              </div>
+            </div>
+          ) : (
+            <VideoPlayer
+              initialSrc={videoUrl}
+              refreshInterval={60 * 60 * 1000} // Refresh every hour
+              fetchNewUrl={refreshVideoUrl}
+              key={videoUrl} // Add a key that changes when the video URL changes to force re-mount
+            />
+          )}
         </CardContent>
       </Card>
     </div>

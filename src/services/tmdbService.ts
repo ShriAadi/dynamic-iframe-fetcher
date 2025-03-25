@@ -15,6 +15,7 @@ export interface TMDBMovieResult {
   poster_path: string | null;
   release_date: string;
   overview: string;
+  imdb_id?: string;
 }
 
 /**
@@ -25,6 +26,13 @@ interface TMDBSearchResponse {
   results: TMDBMovieResult[];
   total_results: number;
   total_pages: number;
+}
+
+/**
+ * Interface for TMDB movie details response
+ */
+interface TMDBMovieDetails extends TMDBMovieResult {
+  imdb_id: string;
 }
 
 /**
@@ -56,7 +64,7 @@ export const searchMovies = async (query: string): Promise<TMDBMovieResult[]> =>
  * @param movieId TMDB movie ID
  * @returns Promise with movie details
  */
-export const getMovieDetails = async (movieId: number): Promise<TMDBMovieResult> => {
+export const getMovieDetails = async (movieId: number): Promise<TMDBMovieDetails> => {
   try {
     const url = `${TMDB_API_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}`;
     const response = await fetch(url);
@@ -70,6 +78,21 @@ export const getMovieDetails = async (movieId: number): Promise<TMDBMovieResult>
   } catch (error) {
     console.error('Error getting movie details:', error);
     throw error;
+  }
+};
+
+/**
+ * Get IMDB ID for a movie by its TMDB ID
+ * @param tmdbId TMDB movie ID
+ * @returns Promise with IMDB ID
+ */
+export const getImdbId = async (tmdbId: number): Promise<string | null> => {
+  try {
+    const movieDetails = await getMovieDetails(tmdbId);
+    return movieDetails.imdb_id || null;
+  } catch (error) {
+    console.error('Error getting IMDB ID:', error);
+    return null;
   }
 };
 

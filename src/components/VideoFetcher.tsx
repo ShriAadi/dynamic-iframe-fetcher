@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Search, Film, Loader2 } from "lucide-react";
 import { useDebounce } from '@/hooks/useDebounce';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface VideoFetcherProps {
   defaultVideoUrl?: string;
@@ -26,6 +27,7 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
   const [selectedMovieTitle, setSelectedMovieTitle] = useState<string>("");
   
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const isMobile = useIsMobile();
 
   // Function to refresh the video URL
   const refreshVideoUrl = useCallback(async (): Promise<string> => {
@@ -181,22 +183,22 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
   const currentMovieId = extractMovieIdFromUrl(videoUrl);
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto px-4">
+    <div className="space-y-4 sm:space-y-8 max-w-4xl mx-auto px-2 sm:px-4">
       <Card className="w-full shadow-lg border-opacity-50 backdrop-blur-sm bg-white/80 transition-all duration-300">
-        <CardHeader>
-          <CardTitle className="text-2xl font-semibold">
-            {selectedMovieTitle || "Dynamic Video Player"}
+        <CardHeader className="p-4 sm:p-6">
+          <CardTitle className="text-xl sm:text-2xl font-semibold">
+            {selectedMovieTitle ? `Now Playing: ${selectedMovieTitle}` : "Dynamic Movie Video Player"}
           </CardTitle>
           <CardDescription>
             Search for movies by name or enter a movie ID directly.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-6 md:grid-cols-1 mb-6">
+        <CardContent className="p-4 sm:p-6">
+          <div className="grid gap-4 sm:gap-6 mb-4 sm:mb-6">
             <div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400" />
+                  <Search className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
                 </div>
                 <Input
                   type="text"
@@ -215,33 +217,35 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
               )}
               
               {searchResults.length > 0 && (
-                <div className="mt-2 border rounded-md shadow-sm max-h-60 overflow-y-auto">
+                <div className="mt-2 border rounded-md shadow-sm max-h-40 sm:max-h-60 overflow-y-auto">
                   <ul className="py-1 divide-y divide-gray-100">
                     {searchResults.map((movie) => (
                       <li 
                         key={movie.id}
-                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer transition-colors flex items-center gap-3"
+                        className="px-2 sm:px-3 py-2 hover:bg-gray-100 cursor-pointer transition-colors flex items-center gap-2 sm:gap-3"
                         onClick={() => handleMovieSelect(movie)}
                       >
                         {movie.poster_path ? (
                           <img 
-                            src={getPosterUrl(movie.poster_path, 'w92')} 
+                            src={getPosterUrl(movie.poster_path, isMobile ? 'w92' : 'w92')} 
                             alt={movie.title}
-                            className="h-16 w-12 object-cover rounded"
+                            className="h-12 w-9 sm:h-16 sm:w-12 object-cover rounded"
                           />
                         ) : (
-                          <div className="h-16 w-12 bg-gray-200 rounded flex items-center justify-center">
-                            <Film className="h-6 w-6 text-gray-400" />
+                          <div className="h-12 w-9 sm:h-16 sm:w-12 bg-gray-200 rounded flex items-center justify-center">
+                            <Film className="h-4 w-4 sm:h-6 sm:w-6 text-gray-400" />
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{movie.title}</p>
+                          <p className="text-xs sm:text-sm font-medium truncate">{movie.title}</p>
                           <p className="text-xs text-muted-foreground">
                             {movie.release_date ? new Date(movie.release_date).getFullYear() : 'Unknown year'}
                           </p>
-                          <p className="text-xs text-muted-foreground line-clamp-1">
-                            {movie.overview || 'No overview available'}
-                          </p>
+                          {!isMobile && (
+                            <p className="text-xs text-muted-foreground line-clamp-1">
+                              {movie.overview || 'No overview available'}
+                            </p>
+                          )}
                         </div>
                       </li>
                     ))}
@@ -250,15 +254,15 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
               )}
               
               {debouncedSearchQuery && !isSearching && searchResults.length === 0 && (
-                <div className="mt-2 p-3 text-sm text-muted-foreground bg-muted/30 rounded">
+                <div className="mt-2 p-2 sm:p-3 text-xs sm:text-sm text-muted-foreground bg-muted/30 rounded">
                   No movies found matching "{debouncedSearchQuery}"
                 </div>
               )}
             </div>
             
-            <div className="mt-4">
-              <h3 className="text-sm font-medium mb-2">Or Enter Movie ID</h3>
-              <form onSubmit={handleMovieIdSubmit} className="flex space-x-2">
+            <div className="mt-2 sm:mt-4">
+              <h3 className="text-xs sm:text-sm font-medium mb-2">Or Enter Movie ID</h3>
+              <form onSubmit={handleMovieIdSubmit} className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                 <Input
                   type="text"
                   value={movieId}
@@ -266,7 +270,7 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
                   placeholder="Enter movie ID (e.g., tt27995594)"
                   className="flex-1"
                 />
-                <Button type="submit" variant="default">
+                <Button type="submit" variant="default" className="w-full sm:w-auto">
                   Load Movie
                 </Button>
               </form>
@@ -274,34 +278,36 @@ const VideoFetcher: React.FC<VideoFetcherProps> = ({
           </div>
           
           {currentMovieId && (
-            <div className="mb-4 p-2 bg-muted/30 rounded-md">
-              <p className="text-sm">
+            <div className="mb-3 sm:mb-4 p-2 bg-muted/30 rounded-md">
+              <p className="text-xs sm:text-sm">
                 <span className="font-medium">Current Movie ID:</span> 
                 <span className="ml-1">{currentMovieId}</span>
               </p>
             </div>
           )}
           
-          <div className="mb-4">
+          <div className="mb-3 sm:mb-4">
             <p className="text-xs text-muted-foreground">
               Current video type: <span className="font-medium">{getVideoTypeLabel(videoUrl)}</span>
             </p>
           </div>
           
           {isLoadingMovie ? (
-            <div className="flex items-center justify-center p-16">
+            <div className="flex items-center justify-center p-8 sm:p-16">
               <div className="text-center">
-                <Loader2 className="h-10 w-10 animate-spin mx-auto mb-4 text-primary" />
-                <p className="text-muted-foreground">Loading movie...</p>
+                <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 animate-spin mx-auto mb-3 sm:mb-4 text-primary" />
+                <p className="text-muted-foreground text-sm sm:text-base">Loading movie...</p>
               </div>
             </div>
           ) : (
-            <VideoPlayer
-              initialSrc={videoUrl}
-              refreshInterval={60 * 60 * 1000} // Refresh every hour
-              fetchNewUrl={refreshVideoUrl}
-              key={videoUrl} // Add a key that changes when the video URL changes to force re-mount
-            />
+            <div className="rounded-lg overflow-hidden">
+              <VideoPlayer
+                initialSrc={videoUrl}
+                refreshInterval={60 * 60 * 1000} // Refresh every hour
+                fetchNewUrl={refreshVideoUrl}
+                key={videoUrl} // Add a key that changes when the video URL changes to force re-mount
+              />
+            </div>
           )}
         </CardContent>
       </Card>

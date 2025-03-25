@@ -9,7 +9,7 @@ const Index = () => {
         <header className="text-center mb-8 sm:mb-16">
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2 sm:mb-4">Dynamic Movie Video Player</h1>
           <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto">
-            Search and play movies from various sources
+            Search and play movies with multiple viewing options
           </p>
         </header>
 

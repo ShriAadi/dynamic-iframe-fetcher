@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { RefreshCcw, AlertCircle, ExternalLink } from "lucide-react";
+import { RefreshCcw, AlertCircle, ExternalLink, Maximize2, Minimize2 } from "lucide-react";
 import { extractOriginalVideoUrl } from '@/services/videoService';
 
 interface VideoPlayerProps {
@@ -27,6 +27,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [hasError, setHasError] = useState<boolean>(false);
   const [isExtracting, setIsExtracting] = useState<boolean>(false);
   const [originalVideoUrl, setOriginalVideoUrl] = useState<string | null>(null);
+  const [useEmbedView, setUseEmbedView] = useState<boolean>(false);
+  const [embedUrl, setEmbedUrl] = useState<string>("");
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -40,7 +42,33 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // Update video source when initialSrc changes
   useEffect(() => {
     setVideoSrc(initialSrc);
+    
+    // Create embed URL from initial source if it's not a direct video
+    if (!isDirectVideoUrl(initialSrc)) {
+      setEmbedUrl(initialSrc);
+    } else {
+      // For direct URLs, revert to the original non-direct URL if we have it
+      const baseUrl = initialSrc.split('/stream')[0];
+      if (baseUrl.includes('jole340erun.com')) {
+        // Extract the movie ID from the URL or use a default embed URL
+        const movieId = initialSrc.includes('/play/') 
+          ? initialSrc.split('/play/')[1].split('?')[0] 
+          : extractMovieIdFromUrl(initialSrc);
+        
+        if (movieId) {
+          setEmbedUrl(`https://jole340erun.com/play/${movieId}`);
+        } else {
+          setEmbedUrl(initialSrc);
+        }
+      }
+    }
   }, [initialSrc]);
+
+  const extractMovieIdFromUrl = (url: string): string => {
+    // Extract movie ID from URL (e.g., tt12345678)
+    const ttMatch = url.match(/tt\d+/);
+    return ttMatch ? ttMatch[0] : "";
+  };
 
   const refreshVideoUrl = async () => {
     setIsLoading(true);
@@ -50,9 +78,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (fetchNewUrl) {
         const newUrl = await fetchNewUrl();
         setVideoSrc(newUrl);
+        
+        // Also update the embed URL if needed
+        if (!isDirectVideoUrl(newUrl)) {
+          setEmbedUrl(newUrl);
+        }
+        
         toast.success("Video source updated successfully");
       } else {
-        if (isDirectVideoUrl(videoSrc)) {
+        if (isDirectVideoUrl(videoSrc) && !useEmbedView) {
           if (videoRef.current) {
             videoRef.current.load();
           }
@@ -86,6 +120,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (extractedUrl) {
         setOriginalVideoUrl(extractedUrl);
         setVideoSrc(extractedUrl); // Automatically use the direct URL
+        setUseEmbedView(false); // Switch to direct view
         toast.success("Using direct video stream for better TV compatibility");
       } else {
         toast.error("Could not extract original video URL");
@@ -95,6 +130,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       toast.error("Failed to extract original video URL");
     } finally {
       setIsExtracting(false);
+    }
+  };
+
+  const toggleEmbedView = () => {
+    setUseEmbedView(!useEmbedView);
+    if (!useEmbedView) {
+      // Switching to embed view
+      toast.info("Switched to embedded player view");
+    } else {
+      // Switching to direct view
+      toast.info("Switched to direct player view");
     }
   };
 
@@ -123,11 +169,22 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const handleMediaError = () => {
     setHasError(true);
     toast.error("Failed to load video");
+    
+    // If direct URL fails, offer to switch to embed view
+    if (isDirectVideoUrl(videoSrc) && !useEmbedView && embedUrl) {
+      toast.info("Try switching to embedded player view", {
+        action: {
+          label: "Switch",
+          onClick: () => setUseEmbedView(true)
+        }
+      });
+    }
   };
 
   const switchToOriginalSource = () => {
     if (originalVideoUrl) {
       setVideoSrc(originalVideoUrl);
+      setUseEmbedView(false);
       toast.success("Switched to original video source");
     }
   };
@@ -145,13 +202,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-2">
         <div>
-          {/* Show movie title instead of domain info */}
           <h3 className="text-base md:text-lg font-medium">
             {movieTitle}
           </h3>
         </div>
         <div className="flex gap-2">
-          {!isDirectVideoUrl(videoSrc) && (
+          {!isDirectVideoUrl(videoSrc) && !useEmbedView && (
             <Button
               variant="outline"
               size="sm"
@@ -163,6 +219,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               <span>{isExtracting ? 'Extracting...' : 'Extract Original'}</span>
             </Button>
           )}
+          {isDirectVideoUrl(videoSrc) || embedUrl ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleEmbedView}
+              className="flex items-center gap-1 transition-all"
+            >
+              {useEmbedView ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+              <span>{useEmbedView ? 'Direct Player' : 'Embed Player'}</span>
+            </Button>
+          ) : null}
           <Button
             variant="outline"
             size="sm"
@@ -176,7 +243,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       </div>
 
-      {originalVideoUrl && videoSrc !== originalVideoUrl && (
+      {originalVideoUrl && videoSrc !== originalVideoUrl && !useEmbedView && (
         <div className="p-3 bg-muted/30 rounded-md mb-4">
           <div className="flex justify-between items-center">
             <p className="text-sm">
@@ -208,13 +275,32 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             <div className="text-center">
               <h3 className="text-lg font-medium">Video unavailable</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                The video source might have expired. Please try refreshing.
+                The video source might have expired. Please try refreshing or switch to embedded player.
               </p>
             </div>
-            <Button onClick={refreshVideoUrl} variant="outline">
-              Try Again
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button onClick={refreshVideoUrl} variant="outline">
+                Try Again
+              </Button>
+              {embedUrl && !useEmbedView && (
+                <Button onClick={toggleEmbedView} variant="default">
+                  Try Embed Player
+                </Button>
+              )}
+            </div>
           </div>
+        ) : useEmbedView && embedUrl ? (
+          <iframe
+            ref={iframeRef}
+            src={embedUrl}
+            width={width}
+            height={height}
+            frameBorder="0"
+            allowFullScreen={true}
+            className="w-full aspect-video rounded-lg transition-opacity duration-300 ease-in-out"
+            style={{ opacity: isLoading ? 0.3 : 1 }}
+            onError={handleMediaError}
+          />
         ) : isDirectVideoUrl(videoSrc) ? (
           <video
             ref={videoRef}
@@ -246,7 +332,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       </div>
       
       {/* TV-friendly controls - bigger touch targets */}
-      <div className="grid grid-cols-2 gap-3 mt-4 tv-controls">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4 tv-controls">
         <Button 
           variant="outline" 
           size="lg" 
@@ -258,7 +344,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           Refresh Video
         </Button>
         
-        {!isDirectVideoUrl(videoSrc) && (
+        {!isDirectVideoUrl(videoSrc) && !useEmbedView && (
           <Button 
             variant="default" 
             size="lg" 
@@ -268,6 +354,18 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           >
             <ExternalLink className="h-6 w-6 mr-2" />
             Get Direct Stream
+          </Button>
+        )}
+        
+        {(isDirectVideoUrl(videoSrc) || embedUrl) && (
+          <Button 
+            variant="default" 
+            size="lg" 
+            onClick={toggleEmbedView}
+            className="text-lg py-6 tv-button"
+          >
+            {useEmbedView ? <Minimize2 className="h-6 w-6 mr-2" /> : <Maximize2 className="h-6 w-6 mr-2" />}
+            {useEmbedView ? 'Direct Player' : 'Embed Player'}
           </Button>
         )}
       </div>
